@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Notification } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -15,6 +15,7 @@ function createWindow() {
     backgroundColor: '#0f172a',
     titleBarStyle: 'hiddenInset', // macOS style
     frame: true,
+    icon: path.join(__dirname, '..', 'src', 'icon.png'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -38,6 +39,7 @@ function createWindow() {
   });
 }
 
+app.setName('Subtitle Translator');
 app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {
@@ -74,6 +76,17 @@ function getScriptPath() {
     return path.join(process.resourcesPath, 'python', 'translator_bridge.py');
   } else {
     return path.join(__dirname, '..', 'python', 'translator_bridge.py');
+  }
+}
+
+// Helper function to show notifications
+function showNotification(title, options = {}) {
+  if (Notification.isSupported()) {
+    new Notification({
+      title: title,
+      icon: path.join(__dirname, '..', 'src', 'icon.png'),
+      ...options
+    }).show();
   }
 }
 
@@ -168,6 +181,14 @@ ipcMain.handle('start-translation', async (event, data) => {
       '--model', data.model,
       '--api-key', data.apiKey
     ];
+    
+    // Add parallel options if specified
+    if (data.parallelLanguages) {
+      args.push('--parallel-langs');
+    }
+    if (data.parallelFiles) {
+      args.push('--parallel-files');
+    }
 
     pythonProcess = spawn(pythonPath, args, {
       env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
@@ -208,8 +229,16 @@ ipcMain.handle('start-translation', async (event, data) => {
     pythonProcess.on('close', (code) => {
       pythonProcess = null;
       if (code === 0 && !hasError) {
+        showNotification('Translation Complete! ✅', {
+          body: 'All files have been translated successfully. Starting validation...',
+          sound: true
+        });
         resolve({ success: true });
       } else {
+        showNotification('Translation Failed! ❌', {
+          body: 'An error occurred during translation. Check the app for details.',
+          sound: true
+        });
         reject(new Error('Translation failed'));
       }
     });
@@ -252,11 +281,32 @@ ipcMain.handle('validate-translations', async (event, data) => {
       if (code === 0) {
         try {
           const result = JSON.parse(output);
+          const failedCount = result.failed_files ? result.failed_files.length : 0;
+          
+          if (failedCount === 0) {
+            showNotification('Validation Complete! ✅', { 
+              body: 'All subtitle files passed validation.',
+              sound: true 
+            });
+          } else {
+            showNotification('Some files failed validation ⚠️', { 
+              body: `${failedCount} file(s) need retranslation.`,
+              sound: true 
+            });
+          }
           resolve(result);
         } catch (e) {
+          showNotification('Validation Error! ❌', { 
+            body: 'Failed to parse validation result.',
+            sound: true 
+          });
           reject(new Error('Failed to parse validation result'));
         }
       } else {
+        showNotification('Validation Failed! ❌', { 
+          body: 'An error occurred during validation.',
+          sound: true 
+        });
         reject(new Error(errorOutput || 'Validation failed'));
       }
     });
@@ -318,8 +368,16 @@ ipcMain.handle('retranslate-file', async (event, data) => {
 
     pythonProc.on('close', (code) => {
       if (code === 0) {
+        showNotification('Retranslation Complete! ✅', { 
+          body: `File "${data.filename}" has been retranslated.`,
+          sound: true 
+        });
         resolve({ success: true, message: 'File retranslated' });
       } else {
+        showNotification('Retranslation Failed! ❌', { 
+          body: `Failed to retranslate "${data.filename}".`,
+          sound: true 
+        });
         reject(new Error(errorOutput || 'Retranslation failed'));
       }
     });

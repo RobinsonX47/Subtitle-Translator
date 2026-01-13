@@ -11,6 +11,8 @@ import json
 import argparse
 import tiktoken
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
 
 # Add parent directory to path to import our modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -22,6 +24,9 @@ try:
 except ImportError:
     # Fallback for packaged app
     pass
+
+# Lock for thread-safe progress updates
+progress_lock = threading.Lock()
 
 def send_progress(current, total, message=""):
     """Send progress update to Electron"""
@@ -46,6 +51,63 @@ def send_status(status):
         # Fallback for encoding issues
         sys.stdout.buffer.write(f"STATUS:{status}".encode('utf-8'))
         sys.stdout.buffer.flush()
+
+def translate_file_worker(srt_path, lang_code, lang_name, output_folder, model, api_key):
+    """Worker function for translating a single file (used in parallel execution)"""
+    try:
+        # CRITICAL: Set API key for this thread
+        os.environ['OPENAI_API_KEY'] = api_key
+        
+        filename = os.path.basename(srt_path)
+        
+        # Read and parse SRT
+        with open(srt_path, 'r', encoding='utf-8', errors='ignore') as f:
+            content = f.read()
+        
+        blocks = parse_srt(content)
+        
+        # Translate (use lowercase code for translation)
+        translated_blocks, elapsed = translate_blocks(blocks, lang_code, model)
+        
+        # Save translated file (use uppercase code in filename)
+        new_name = filename.replace("_EN", f"_{lang_code.upper()}")
+        if not new_name.endswith(f"_{lang_code.upper()}.srt"):
+            new_name = filename.replace(".srt", f"_{lang_code.upper()}.srt")
+        
+        lang_folder = os.path.join(output_folder, lang_name)
+        os.makedirs(lang_folder, exist_ok=True)
+        out_path = os.path.join(lang_folder, new_name)
+        
+        # Rebuild SRT
+        lines = []
+        for b in translated_blocks:
+            lines.append(str(b["index"]).strip())
+            lines.append(f"{b['start'].strip()} --> {b['end'].strip()}")
+            for l in b["lines"]:
+                clean_line = " ".join(l.strip().split())
+                lines.append(clean_line)
+            lines.append("")
+        
+        output_content = "\n".join(lines).strip() + "\n"
+        
+        with open(out_path, 'w', encoding='utf-8') as f:
+            f.write(output_content)
+        
+        return {
+            "success": True,
+            "filename": filename,
+            "output_name": new_name,
+            "lang": lang_name,
+            "elapsed": elapsed
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "filename": filename if 'filename' in locals() else "unknown",
+            "lang": lang_name,
+            "error": str(e)
+        }
 
 def analyze_files(source_folder, model):
     """Analyze SRT files and return cost estimate with real-world data"""
@@ -180,8 +242,8 @@ Critical Rules:
             "error": str(e)
         }
 
-def translate_files(source_folder, output_folder, languages, model, api_key):
-    """Translate SRT files to target languages"""
+def translate_files(source_folder, output_folder, languages, model, api_key, parallel_languages=False, parallel_files=False):
+    """Translate SRT files to target languages with optional parallel processing"""
     try:
         # Set API key
         os.environ['OPENAI_API_KEY'] = api_key
@@ -197,75 +259,56 @@ def translate_files(source_folder, output_folder, languages, model, api_key):
             send_status("❌ No SRT files found")
             return {"success": False, "error": "No SRT files found"}
         
-        send_status(f"📝 Found {len(srt_files)} file(s)")
+        send_status(f"📝 Found {len(srt_files)} file(s) to translate")
         
-        total_tasks = len(srt_files) * len(languages)
-        current_task = 0
+        # Display translation mode
+        mode = "Sequential"
+        if parallel_languages and parallel_files:
+            mode = "Maximum Speed (files + languages parallel)"
+        elif parallel_languages:
+            mode = "Parallel Languages"
+        elif parallel_files:
+            mode = "Parallel Files"
+        
+        send_status(f"⚡ Mode: {mode}")
         
         # Create output directory
         os.makedirs(output_folder, exist_ok=True)
         
-        for lang_obj in languages:
-            # Handle both old format (string) and new format (dict)
-            if isinstance(lang_obj, dict):
-                lang_code = lang_obj.get('code')
-                lang_name = lang_obj.get('name', lang_code).capitalize()
-            else:
-                lang_code = lang_obj
-                lang_name = lang_obj.capitalize()
-            
-            send_status(f"🌍 Translating to {lang_name}...")
-            
-            lang_folder = os.path.join(output_folder, lang_name)
-            os.makedirs(lang_folder, exist_ok=True)
-            
-            for srt_path in srt_files:
-                filename = os.path.basename(srt_path)
+        total_tasks = len(srt_files) * len(languages)
+        current_task = 0
+        
+        # Process files in parallel or sequentially
+        if parallel_files:
+            # Translate multiple files at the same time
+            send_status(f"⚡ Processing {len(srt_files)} file(s) in parallel...")
+            with ThreadPoolExecutor(max_workers=min(len(srt_files), 4)) as executor:
+                futures = {}
                 
-                send_progress(current_task, total_tasks, f"Translating {filename} to {lang_name}")
+                for file_idx, srt_path in enumerate(srt_files, 1):
+                    future = executor.submit(
+                        translate_single_file,
+                        srt_path, file_idx, len(srt_files), languages, model, api_key, parallel_languages, output_folder
+                    )
+                    futures[future] = srt_path
                 
-                try:
-                    # Read and parse SRT
-                    with open(srt_path, 'r', encoding='utf-8', errors='ignore') as f:
-                        content = f.read()
-                    
-                    blocks = parse_srt(content)
-                    
-                    # Translate (use lowercase code for translation)
-                    translated_blocks, elapsed = translate_blocks(blocks, lang_code, model)
-                    
-                    # Save translated file (use uppercase code in filename)
-                    new_name = filename.replace("_EN", f"_{lang_code.upper()}")
-                    if not new_name.endswith(f"_{lang_code.upper()}.srt"):
-                        new_name = filename.replace(".srt", f"_{lang_code.upper()}.srt")
-                    
-                    out_path = os.path.join(lang_folder, new_name)
-                    
-                    # Rebuild SRT
-                    lines = []
-                    for b in translated_blocks:
-                        lines.append(str(b["index"]).strip())
-                        lines.append(f"{b['start'].strip()} --> {b['end'].strip()}")
-                        for l in b["lines"]:
-                            clean_line = " ".join(l.strip().split())
-                            lines.append(clean_line)
-                        lines.append("")
-                    
-                    output_content = "\n".join(lines).strip() + "\n"
-                    
-                    with open(out_path, 'w', encoding='utf-8') as f:
-                        f.write(output_content)
-                    
-                    send_status(f"✅ {filename} → {new_name} ({elapsed:.1f}s)")
-                    
-                except Exception as e:
-                    send_status(f"❌ Failed: {filename} - {str(e)}")
-                    print(f"Error translating {filename}: {e}", file=sys.stderr)
-                
-                current_task += 1
-                send_progress(current_task, total_tasks, f"Completed {filename}")
-            
-            send_status(f"🎯 Completed: {lang_name}")
+                # Collect results as they complete
+                for future in as_completed(futures):
+                    result = future.result()
+                    if result["success"]:
+                        current_task += result["task_count"]
+                        send_progress(current_task, total_tasks, result["message"])
+                    else:
+                        send_status(f"❌ Error: {result['error']}")
+        else:
+            # Translate files sequentially
+            for file_idx, srt_path in enumerate(srt_files, 1):
+                result = translate_single_file(
+                    srt_path, file_idx, len(srt_files), languages, model, api_key, parallel_languages, output_folder
+                )
+                if result["success"]:
+                    current_task += result["task_count"]
+                    send_progress(current_task, total_tasks, result["message"])
         
         send_status("🎉 All translations completed!")
         return {"success": True}
@@ -274,6 +317,79 @@ def translate_files(source_folder, output_folder, languages, model, api_key):
         send_status(f"❌ Error: {str(e)}")
         print(f"Translation error: {e}", file=sys.stderr)
         return {"success": False, "error": str(e)}
+
+def translate_single_file(srt_path, file_idx, total_files, languages, model, api_key, parallel_languages, output_folder):
+    """Translate a single file to all languages"""
+    try:
+        # Set API key for this thread
+        os.environ['OPENAI_API_KEY'] = api_key
+        
+        filename = os.path.basename(srt_path)
+        send_status(f"📄 [{file_idx}/{total_files}] Processing: {filename}")
+        
+        # Parse source file once
+        with open(srt_path, 'r', encoding='utf-8', errors='ignore') as f:
+            content = f.read()
+        blocks = parse_srt(content)
+        
+        task_count = len(languages)
+        
+        if parallel_languages:
+            # Translate to all languages IN PARALLEL
+            with ThreadPoolExecutor(max_workers=len(languages)) as executor:
+                futures = {}
+                
+                for lang_obj in languages:
+                    # Handle both old format (string) and new format (dict)
+                    if isinstance(lang_obj, dict):
+                        lang_code = lang_obj.get('code')
+                        lang_name = lang_obj.get('name', lang_code).capitalize()
+                    else:
+                        lang_code = lang_obj
+                        lang_name = lang_obj.capitalize()
+                    
+                    # Submit translation task for this language
+                    future = executor.submit(
+                        translate_file_worker,
+                        srt_path, lang_code, lang_name, output_folder, model, api_key
+                    )
+                    futures[future] = lang_name
+                
+                # Collect results as they complete
+                completed_langs = 0
+                for future in as_completed(futures):
+                    result = future.result()
+                    completed_langs += 1
+                    lang_name = futures[future]
+                    
+                    if result["success"]:
+                        send_status(f"✅ {filename} → {lang_name} ({result['elapsed']:.1f}s)")
+                    else:
+                        send_status(f"❌ {filename} → {lang_name}: {result['error']}")
+        else:
+            # Translate each language sequentially
+            for lang_obj in languages:
+                # Handle both old format (string) and new format (dict)
+                if isinstance(lang_obj, dict):
+                    lang_code = lang_obj.get('code')
+                    lang_name = lang_obj.get('name', lang_code).capitalize()
+                else:
+                    lang_code = lang_obj
+                    lang_name = lang_obj.capitalize()
+                
+                result = translate_file_worker(
+                    srt_path, lang_code, lang_name, output_folder, model, api_key
+                )
+                
+                if result["success"]:
+                    send_status(f"✅ {filename} → {lang_name} ({result['elapsed']:.1f}s)")
+                else:
+                    send_status(f"❌ {filename} → {lang_name}: {result['error']}")
+        
+        return {"success": True, "task_count": task_count, "message": f"[{file_idx}/{total_files}] {filename} complete"}
+        
+    except Exception as e:
+        return {"success": False, "error": str(e), "task_count": 0}
 
 def validate_translations(output_folder, source_folder):
     """Validate translated files against source English files (OPTIMIZED)"""
@@ -458,6 +574,8 @@ def main():
     translate_parser.add_argument('--langs', nargs='+', required=True, help='Target languages')
     translate_parser.add_argument('--model', required=True, help='Model name')
     translate_parser.add_argument('--api-key', required=True, help='OpenAI API key')
+    translate_parser.add_argument('--parallel-langs', action='store_true', help='Translate all languages in parallel')
+    translate_parser.add_argument('--parallel-files', action='store_true', help='Translate multiple files in parallel')
     
     # Validate command
     validate_parser = subparsers.add_parser('validate', help='Validate translated files')
@@ -486,7 +604,9 @@ def main():
             args.output,
             args.langs,
             args.model,
-            args.api_key
+            args.api_key,
+            parallel_languages=args.parallel_langs,
+            parallel_files=args.parallel_files
         )
         if not result.get('success'):
             sys.exit(1)

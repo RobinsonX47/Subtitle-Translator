@@ -32,6 +32,8 @@ function App() {
   const [selectedLanguages, setSelectedLanguages] = useState([]);
   const [selectedModel, setSelectedModel] = useState('gpt-4o-mini');
   const [isTranslating, setIsTranslating] = useState(false);
+  const [useParallelLanguages, setUseParallelLanguages] = useState(false);
+  const [useParallelFiles, setUseParallelFiles] = useState(false);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState('Ready to translate');
   const [isValidating, setIsValidating] = useState(false);
@@ -66,6 +68,8 @@ function App() {
           if (settings.sourceFolder) setSourceFolder(settings.sourceFolder);
           if (settings.outputFolder) setOutputFolder(settings.outputFolder);
           if (settings.selectedModel) setSelectedModel(settings.selectedModel);
+          if (settings.useParallelLanguages !== undefined) setUseParallelLanguages(settings.useParallelLanguages);
+          if (settings.useParallelFiles !== undefined) setUseParallelFiles(settings.useParallelFiles);
         }
       });
 
@@ -93,9 +97,9 @@ function App() {
   // Save settings
   useEffect(() => {
     if (window.electronAPI) {
-      window.electronAPI.saveSettings({ apiKey, sourceFolder, outputFolder, selectedModel });
+      window.electronAPI.saveSettings({ apiKey, sourceFolder, outputFolder, selectedModel, useParallelLanguages, useParallelFiles });
     }
-  }, [apiKey, sourceFolder, outputFolder, selectedModel]);
+  }, [apiKey, sourceFolder, outputFolder, selectedModel, useParallelLanguages, useParallelFiles]);
 
   const selectSourceFolder = async () => {
     const folder = await window.electronAPI.selectFolder({ title: 'Select Source Folder' });
@@ -212,7 +216,8 @@ function App() {
 
     try {
       await window.electronAPI.startTranslation({
-        sourceFolder, outputFolder, languages: selectedLanguages, model: selectedModel, apiKey
+        sourceFolder, outputFolder, languages: selectedLanguages, model: selectedModel, apiKey,
+        parallelLanguages: useParallelLanguages, parallelFiles: useParallelFiles
       });
       setProgress(100);
       setStatus('🎉 Translation completed! Validating files...');
@@ -305,6 +310,50 @@ function App() {
                 },
                   React.createElement('div', { className: 'font-semibold' }, model.name),
                   React.createElement('div', { className: 'text-xs opacity-80' }, model.desc)
+                )
+              )
+            )
+          ),
+
+          // Parallel Translation Settings
+          React.createElement('div', {
+            className: 'backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 shadow-xl p-6'
+          },
+            React.createElement('h3', { className: 'text-lg font-semibold text-white mb-4' }, 'Translation Mode'),
+            React.createElement('div', { className: 'space-y-3' },
+              React.createElement('label', { className: 'flex items-center gap-3 cursor-pointer' },
+                React.createElement('input', {
+                  type: 'checkbox',
+                  checked: useParallelLanguages,
+                  onChange: (e) => setUseParallelLanguages(e.target.checked),
+                  className: 'w-5 h-5 rounded cursor-pointer'
+                }),
+                React.createElement('div', null,
+                  React.createElement('span', { className: 'text-white font-medium block' }, 'Parallel Languages'),
+                  React.createElement('p', { className: 'text-xs text-purple-300' }, `All ${selectedLanguages.length} language(s) per file simultaneously`)
+                )
+              ),
+              React.createElement('label', { className: 'flex items-center gap-3 cursor-pointer' },
+                React.createElement('input', {
+                  type: 'checkbox',
+                  checked: useParallelFiles,
+                  onChange: (e) => setUseParallelFiles(e.target.checked),
+                  className: 'w-5 h-5 rounded cursor-pointer'
+                }),
+                React.createElement('div', null,
+                  React.createElement('span', { className: 'text-white font-medium block' }, 'Parallel Files'),
+                  React.createElement('p', { className: 'text-xs text-purple-300' }, 'Multiple SRT files at the same time')
+                )
+              ),
+              (useParallelLanguages || useParallelFiles) && React.createElement('div', { className: 'bg-white/5 rounded-lg p-3 border border-white/10 mt-2' },
+                React.createElement('p', { className: 'text-xs text-purple-300' },
+                  `⚡ Mode: ${
+                    useParallelLanguages && useParallelFiles 
+                      ? 'Maximum speed - files & languages in parallel'
+                      : useParallelLanguages
+                      ? `${selectedLanguages.length} languages per file`
+                      : 'Multiple files at once'
+                  }`
                 )
               )
             )
