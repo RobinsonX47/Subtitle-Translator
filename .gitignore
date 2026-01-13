@@ -1,0 +1,61 @@
+# In your project folder (F:\subtitle-translator)
+notepad .gitignore
+```
+
+Add this content:
+```
+# Node modules
+node_modules/
+npm-debug.log*
+
+# Build outputs
+dist/
+build/
+*.exe
+*.dmg
+*.AppImage
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# Environment variables
+.env
+*.env
+
+# API Keys (IMPORTANT!)
+.env
+config.json
+settings.json
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+
+# User data
+output/
+*.srt
+*.rar
+*.zip
