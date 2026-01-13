@@ -34,8 +34,11 @@ function App() {
   const [isTranslating, setIsTranslating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState('Ready to translate');
-  const [estimatedCost, setEstimatedCost] = useState(null);
-  const [showCostEstimate, setShowCostEstimate] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
+  const [validationResults, setValidationResults] = useState(null);
+  const [showValidation, setShowValidation] = useState(false);
+  const [failedFiles, setFailedFiles] = useState([]);
+  const [isRetranslating, setIsRetranslating] = useState(false);
 
   const languages = [
     { code: 'hinglish', name: 'Hinglish', flag: '🇮🇳', desc: 'Hindi + English' },
@@ -124,32 +127,74 @@ function App() {
     setSelectedLanguages([]);
   };
 
-  const calculateEstimate = async () => {
-    if (!sourceFolder || selectedLanguages.length === 0) {
-      setStatus('⚠️ Please select source folder and languages');
+  const validateTranslations = async () => {
+    setIsValidating(true);
+    try {
+      const results = await window.electronAPI.validateTranslations({
+        outputFolder,
+        sourceFolder
+      });
+      setValidationResults(results);
+      setShowValidation(true);
+      
+      // Extract failed files for potential retranslation
+      const failed = [];
+      if (results.results) {
+        results.results.forEach(langResult => {
+          if (langResult.files) {
+            langResult.files.forEach(fileResult => {
+              if (!fileResult.passed) {
+                failed.push({
+                  file: fileResult.filename,
+                  language: langResult.language
+                });
+              }
+            });
+          }
+        });
+      }
+      setFailedFiles(failed);
+      
+      if (failed.length === 0) {
+        setStatus('✅ All translations passed validation!');
+      } else {
+        setStatus(`⚠️ ${failed.length} file(s) need retranslation`);
+      }
+    } catch (error) {
+      setStatus(`❌ Validation failed: ${error.message}`);
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  const retranslateFailedFiles = async () => {
+    if (failedFiles.length === 0) {
+      setStatus('✅ No files to retranslate');
       return;
     }
 
-    setStatus('💰 Analyzing files...');
-
+    setIsRetranslating(true);
+    setStatus(`🔄 Retranslating ${failedFiles.length} file(s)...`);
+    
     try {
-      const result = await window.electronAPI.analyzeFiles({ sourceFolder, model: selectedModel });
-      if (result.success) {
-        const totalUSD = result.costUSD * selectedLanguages.length;
-        setEstimatedCost({
-          files: result.files,
-          tokens: result.totalTokens,
-          usd: totalUSD,
-          inr: totalUSD * 83,
-          languages: selectedLanguages.length
+      for (const failed of failedFiles) {
+        await window.electronAPI.retranslateFile({
+          sourceFolder,
+          outputFolder,
+          filename: failed.file,
+          language: failed.language,
+          model: selectedModel,
+          apiKey
         });
-        setShowCostEstimate(true);
-        setStatus('✅ Cost calculated');
-      } else {
-        setStatus(`❌ ${result.error}`);
       }
+      
+      // Validate again after retranslation
+      setStatus('🔍 Validating retranslated files...');
+      await validateTranslations();
     } catch (error) {
-      setStatus(`❌ Error: ${error.message}`);
+      setStatus(`❌ Retranslation failed: ${error.message}`);
+    } finally {
+      setIsRetranslating(false);
     }
   };
 
@@ -162,13 +207,18 @@ function App() {
     setIsTranslating(true);
     setProgress(0);
     setStatus('🚀 Starting translation...');
+    setShowValidation(false);
+    setFailedFiles([]);
 
     try {
       await window.electronAPI.startTranslation({
         sourceFolder, outputFolder, languages: selectedLanguages, model: selectedModel, apiKey
       });
-      setStatus('🎉 Translation completed!');
       setProgress(100);
+      setStatus('🎉 Translation completed! Validating files...');
+      
+      // Automatically validate translations after completion
+      setTimeout(() => validateTranslations(), 500);
     } catch (error) {
       setStatus(`❌ Failed: ${error.message}`);
     } finally {
@@ -329,54 +379,26 @@ function App() {
               )
             ),
             React.createElement('div', { className: 'grid grid-cols-2 gap-3' },
-              ...languages.map(lang =>
+              languages.map(lang =>
                 React.createElement('button', {
                   key: lang.code,
                   onClick: () => toggleLanguage(lang.code),
-                  className: `p-4 rounded-xl text-left ${
+                  className: `p-3 rounded-xl text-left transition-all ${
                     selectedLanguages.includes(lang.code)
-                      ? 'bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg scale-105'
+                      ? 'bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg'
                       : 'bg-white/5 text-purple-200 hover:bg-white/10'
                   }`
                 },
-                  React.createElement('div', { className: 'flex items-center gap-3 mb-1' },
-                    React.createElement('span', { className: 'text-2xl' }, lang.flag),
-                    React.createElement('div', null,
-                      React.createElement('div', { className: 'font-semibold' }, lang.name),
-                      React.createElement('div', { className: 'text-xs opacity-80' }, lang.desc)
-                    )
-                  ),
-                  selectedLanguages.includes(lang.code) && React.createElement('div', { className: 'flex justify-end' },
-                    React.createElement(Icon, { name: 'check' })
+                  React.createElement('div', { className: 'flex items-start justify-between gap-2' },
+                    React.createElement('div', { className: 'flex items-start gap-2 min-w-0 flex-1' },
+                      React.createElement('span', { className: 'text-xl flex-shrink-0' }, lang.flag),
+                      React.createElement('div', { className: 'min-w-0' },
+                        React.createElement('div', { className: 'font-semibold text-sm' }, lang.name),
+                        React.createElement('div', { className: 'text-xs opacity-80' }, lang.desc)
+                      )
+                    ),
+                    selectedLanguages.includes(lang.code) && React.createElement(Icon, { name: 'check', className: 'w-4 h-4 flex-shrink-0 mt-0.5' })
                   )
-                )
-              )
-            )
-          ),
-
-          // Cost Estimate
-          showCostEstimate && estimatedCost && React.createElement('div', {
-            className: 'backdrop-blur-xl bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-2xl border border-green-400/30 shadow-xl p-6'
-          },
-            React.createElement('h3', { className: 'text-lg font-semibold text-white mb-4' }, '💰 Cost Estimate'),
-            React.createElement('div', { className: 'grid grid-cols-2 gap-4 text-sm' },
-              React.createElement('div', null,
-                React.createElement('div', { className: 'text-green-200' }, 'Files to Process'),
-                React.createElement('div', { className: 'text-2xl font-bold text-white' }, estimatedCost.files)
-              ),
-              React.createElement('div', null,
-                React.createElement('div', { className: 'text-green-200' }, 'Target Languages'),
-                React.createElement('div', { className: 'text-2xl font-bold text-white' }, estimatedCost.languages)
-              ),
-              React.createElement('div', null,
-                React.createElement('div', { className: 'text-green-200' }, 'Total Tokens'),
-                React.createElement('div', { className: 'text-2xl font-bold text-white' }, estimatedCost.tokens.toLocaleString())
-              ),
-              React.createElement('div', null,
-                React.createElement('div', { className: 'text-green-200' }, 'Total Cost'),
-                React.createElement('div', { className: 'text-2xl font-bold text-white' },
-                  `$${estimatedCost.usd.toFixed(3)}`,
-                  React.createElement('span', { className: 'text-sm ml-2' }, `~₹${estimatedCost.inr.toFixed(0)}`)
                 )
               )
             )
@@ -408,27 +430,54 @@ function App() {
             )
           ),
 
-          // Actions
-          React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
-            React.createElement('button', {
-              onClick: calculateEstimate,
-              disabled: isTranslating,
-              className: 'backdrop-blur-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold py-4 px-6 rounded-2xl shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2'
-            },
-              React.createElement(Icon, { name: 'settings' }),
-              'Calculate Cost'
+          // Validation Results
+          showValidation && validationResults && React.createElement('div', {
+            className: 'backdrop-blur-xl bg-white/10 rounded-2xl border border-green-500/30 shadow-xl p-6'
+          },
+            React.createElement('h3', { className: 'text-lg font-semibold text-white mb-4 flex items-center gap-2' },
+              React.createElement(Icon, { name: 'check' }),
+              '✅ Validation Results'
             ),
+            React.createElement('div', { className: 'space-y-3 mb-4 max-h-48 overflow-y-auto' },
+              validationResults.results ? validationResults.results.map((langResult, idx) =>
+                React.createElement('div', { key: idx, className: 'bg-white/5 rounded-lg p-3' },
+                  React.createElement('div', { className: 'font-semibold text-purple-200' }, `${langResult.language}`),
+                  React.createElement('div', { className: 'text-sm text-purple-300 mt-1' },
+                    `${langResult.files ? langResult.files.filter(f => f.passed).length : 0} / ${langResult.files ? langResult.files.length : 0} files passed`
+                  )
+                )
+              ) : React.createElement('div', { className: 'text-purple-200' }, 'Validation complete'),
+              failedFiles.length > 0 && React.createElement('div', { className: 'bg-red-500/10 border border-red-500/30 rounded-lg p-3 mt-3' },
+                React.createElement('div', { className: 'font-semibold text-red-300' }, `${failedFiles.length} file(s) need retranslation`)
+              )
+            )
+          ),
+
+          // Actions
+          React.createElement('div', { className: 'grid grid-cols-1 gap-4' },
             isTranslating 
               ? React.createElement('button', {
                   onClick: cancelTranslation,
-                  className: 'bg-red-500 hover:bg-red-600 text-white font-semibold py-4 px-6 rounded-2xl shadow-xl flex items-center justify-center gap-2'
-                }, 'Cancel')
-              : React.createElement('button', {
-                  onClick: startTranslation,
-                  className: 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-4 px-6 rounded-2xl shadow-xl flex items-center justify-center gap-2'
-                },
-                  React.createElement(Icon, { name: 'play' }),
-                  'Start Translation'
+                  className: 'w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-4 px-6 rounded-2xl shadow-xl flex items-center justify-center gap-2'
+                }, 'Cancel Translation')
+              : React.createElement('div', { className: 'grid grid-cols-1 gap-2' },
+                  React.createElement('button', {
+                    onClick: startTranslation,
+                    className: 'w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-4 px-6 rounded-2xl shadow-xl flex items-center justify-center gap-2'
+                  },
+                    React.createElement(Icon, { name: 'play' }),
+                    'Start Translation'
+                  ),
+                  failedFiles.length > 0 && !isValidating && !isRetranslating && React.createElement('button', {
+                    onClick: retranslateFailedFiles,
+                    className: 'w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 px-6 rounded-2xl shadow-xl flex items-center justify-center gap-2'
+                  },
+                    React.createElement(Icon, { name: 'play' }),
+                    `Retranslate ${failedFiles.length} Failed File(s)`
+                  ),
+                  isValidating && React.createElement('div', {
+                    className: 'w-full bg-blue-500 text-white font-semibold py-3 px-6 rounded-2xl text-center'
+                  }, 'Validating...')
                 )
           )
         )

@@ -119,19 +119,21 @@ ipcMain.handle('analyze-files', async (event, data) => {
       '--model', data.model
     ];
 
-    const process = spawn(pythonPath, args);
+    const pythonProc = spawn(pythonPath, args, {
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
+    });
     let output = '';
     let errorOutput = '';
 
-    process.stdout.on('data', (data) => {
+    pythonProc.stdout.on('data', (data) => {
       output += data.toString();
     });
 
-    process.stderr.on('data', (data) => {
+    pythonProc.stderr.on('data', (data) => {
       errorOutput += data.toString();
     });
 
-    process.on('close', (code) => {
+    pythonProc.on('close', (code) => {
       if (code === 0) {
         try {
           const result = JSON.parse(output);
@@ -144,7 +146,7 @@ ipcMain.handle('analyze-files', async (event, data) => {
       }
     });
 
-    process.on('error', (err) => {
+    pythonProc.on('error', (err) => {
       reject(err);
     });
   });
@@ -161,12 +163,15 @@ ipcMain.handle('start-translation', async (event, data) => {
       'translate',
       '--source', data.sourceFolder,
       '--output', data.outputFolder,
-      '--langs', ...data.languages,
+      '--langs',
+      ...data.languages,
       '--model', data.model,
       '--api-key', data.apiKey
     ];
 
-    pythonProcess = spawn(pythonPath, args);
+    pythonProcess = spawn(pythonPath, args, {
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
+    });
     let hasError = false;
 
     pythonProcess.stdout.on('data', (data) => {
@@ -193,8 +198,11 @@ ipcMain.handle('start-translation', async (event, data) => {
     pythonProcess.stderr.on('data', (data) => {
       const error = data.toString();
       console.error('Python Error:', error);
-      mainWindow.webContents.send('translation-error', error);
-      hasError = true;
+      // Only treat as error if it contains "Traceback" or "Error:"
+      if (error.includes('Traceback') || error.includes('Error:')) {
+        mainWindow.webContents.send('translation-error', error);
+        hasError = true;
+      }
     });
 
     pythonProcess.on('close', (code) => {
@@ -208,6 +216,115 @@ ipcMain.handle('start-translation', async (event, data) => {
 
     pythonProcess.on('error', (err) => {
       pythonProcess = null;
+      reject(err);
+    });
+  });
+});
+
+// Validate translations
+ipcMain.handle('validate-translations', async (event, data) => {
+  return new Promise((resolve, reject) => {
+    const pythonPath = getPythonPath();
+    const scriptPath = getScriptPath();
+    
+    const args = [
+      scriptPath,
+      'validate',
+      '--output', data.outputFolder,
+      '--source', data.sourceFolder
+    ];
+
+    const pythonProc = spawn(pythonPath, args, {
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
+    });
+    let output = '';
+    let errorOutput = '';
+
+    pythonProc.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+
+    pythonProc.stderr.on('data', (data) => {
+      errorOutput += data.toString();
+    });
+
+    pythonProc.on('close', (code) => {
+      if (code === 0) {
+        try {
+          const result = JSON.parse(output);
+          resolve(result);
+        } catch (e) {
+          reject(new Error('Failed to parse validation result'));
+        }
+      } else {
+        reject(new Error(errorOutput || 'Validation failed'));
+      }
+    });
+
+    pythonProc.on('error', (err) => {
+      reject(err);
+    });
+  });
+});
+
+// Retranslate specific file
+ipcMain.handle('retranslate-file', async (event, data) => {
+  return new Promise((resolve, reject) => {
+    const pythonPath = getPythonPath();
+    const scriptPath = getScriptPath();
+    
+    const args = [
+      scriptPath,
+      'retranslate',
+      '--source', data.sourceFolder,
+      '--output', data.outputFolder,
+      '--file', data.filename,
+      '--language', data.language,
+      '--model', data.model,
+      '--api-key', data.apiKey
+    ];
+
+    const pythonProc = spawn(pythonPath, args, {
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
+    });
+    let output = '';
+    let errorOutput = '';
+
+    pythonProc.stdout.on('data', (data) => {
+      const outputStr = data.toString();
+      
+      // Send progress updates to frontend
+      try {
+        const lines = outputStr.split('\n').filter(l => l.trim());
+        lines.forEach(line => {
+          if (line.startsWith('PROGRESS:')) {
+            const progressData = JSON.parse(line.substring(9));
+            mainWindow.webContents.send('translation-progress', progressData);
+          } else if (line.startsWith('STATUS:')) {
+            const status = line.substring(7);
+            mainWindow.webContents.send('translation-status', status);
+          }
+        });
+      } catch (e) {
+        // Not JSON
+      }
+      
+      output += outputStr;
+    });
+
+    pythonProc.stderr.on('data', (data) => {
+      errorOutput += data.toString();
+    });
+
+    pythonProc.on('close', (code) => {
+      if (code === 0) {
+        resolve({ success: true, message: 'File retranslated' });
+      } else {
+        reject(new Error(errorOutput || 'Retranslation failed'));
+      }
+    });
+
+    pythonProc.on('error', (err) => {
       reject(err);
     });
   });

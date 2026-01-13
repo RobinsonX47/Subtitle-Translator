@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Translation operations
   analyzeFiles: (data) => ipcRenderer.invoke('analyze-files', data),
   startTranslation: (data) => ipcRenderer.invoke('start-translation', data),
+  validateTranslations: (data) => ipcRenderer.invoke('validate-translations', data),
+  retranslateFile: (data) => ipcRenderer.invoke('retranslate-file', data),
   cancelTranslation: () => ipcRenderer.invoke('cancel-translation'),
   
   // Settings

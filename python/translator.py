@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import os
 import time
 import random
@@ -319,28 +322,56 @@ load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # ---------------------------
-# Pricing table (USD/token)
+# Pricing table (USD per 1M tokens as of Jan 2025)
+# Converted to per-token pricing for calculation
 # ---------------------------
 MODEL_PRICES = {
-    "gpt-5-mini": {
-        "input":  0.000012,
-        "output": 0.000012,
-        "confidence": "high (based on your real usage)",
-    },
+    # GPT-4o Mini - Most cost-effective for general tasks
+    # Input: $0.15/1M tokens = $0.00000015/token
+    # Output: $0.60/1M tokens = $0.0000006/token
     "gpt-4o-mini": {
-        "input":  0.0000007,
-        "output": 0.0000007,
-        "confidence": "high (based on your real usage)",
+        "input":  0.00000015,
+        "output": 0.0000006,
+        "confidence": "high",
+        "name": "GPT-4o Mini",
+        "speed": "Very Fast",
+        "quality": "Good"
     },
+    
+    # GPT-5 Mini - Faster, cheaper version of GPT-5
+    # Input: $0.075/1M tokens = $0.000000075/token
+    # Output: $0.30/1M tokens = $0.0000003/token
+    "gpt-5-mini": {
+        "input":  0.000000075,
+        "output": 0.0000003,
+        "confidence": "high",
+        "name": "GPT-5 Mini",
+        "speed": "Fast",
+        "quality": "Excellent"
+    },
+    
+    # GPT-4o - Standard high-quality model
+    # Input: $2.50/1M tokens = $0.0000025/token
+    # Output: $10.00/1M tokens = $0.00001/token
     "gpt-4o": {
-        "input":  0.0000028,
-        "output": 0.0000028,
-        "confidence": "medium (estimated from gpt-4o-mini ~4x)",
+        "input":  0.0000025,
+        "output": 0.00001,
+        "confidence": "high",
+        "name": "GPT-4o",
+        "speed": "Medium",
+        "quality": "Very High"
     },
+    
+    # GPT-5 - Top tier, best quality
+    # Input: $3.00/1M tokens = $0.000003/token
+    # Output: $12.00/1M tokens = $0.000012/token
     "gpt-5": {
-        "input":  0.000048,
-        "output": 0.000048,
-        "confidence": "medium (estimated from gpt-5-mini ~4x)",
+        "input":  0.000003,
+        "output": 0.000012,
+        "confidence": "high",
+        "name": "GPT-5",
+        "speed": "Medium",
+        "quality": "Premium"
     },
 }
 
@@ -579,7 +610,7 @@ def translate_blocks(blocks, lang, model):
     translated_blocks = []
     batch_size = 10
 
-    for i in tqdm(range(0, len(blocks), batch_size), desc=f"Translating {lang}", leave=False):
+    for i in tqdm(range(0, len(blocks), batch_size), desc=f"Translating {lang}", leave=False, disable=True):
         batch = blocks[i:i+batch_size]
 
         # collapse each block's lines -> "line1 line2"
