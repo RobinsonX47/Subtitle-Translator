@@ -19,6 +19,7 @@ try:
     from srt_utils import parse_srt
     from translator import translate_blocks, MODEL_PRICES
     from validation_utils import parse_srt_file, validate_subtitle_pair
+    from translation_features import TranslationCache, ContextAwareTranslator, ParallelTranslationManager
 except ImportError:
     # Fallback for packaged app
     pass
@@ -180,11 +181,19 @@ Critical Rules:
             "error": str(e)
         }
 
-def translate_files(source_folder, output_folder, languages, model, api_key):
-    """Translate SRT files to target languages"""
+def translate_files(source_folder, output_folder, languages, model, api_key, 
+                   language_settings=None, context_instructions="", 
+                   use_parallel=True, use_cache=True, translation_cache=None):
+    """Translate SRT files to target languages with advanced features"""
     try:
         # Set API key
         os.environ['OPENAI_API_KEY'] = api_key
+        
+        # Initialize advanced features
+        cache = TranslationCache() if use_cache else None
+        context_mgr = ContextAwareTranslator(context_instructions) if context_instructions else None
+        parallel_mgr = ParallelTranslationManager() if use_parallel else None
+        language_settings = language_settings or {}
         
         # Find all SRT files
         srt_files = []
@@ -214,7 +223,12 @@ def translate_files(source_folder, output_folder, languages, model, api_key):
                 lang_code = lang_obj
                 lang_name = lang_obj.capitalize()
             
-            send_status(f"🌍 Translating to {lang_name}...")
+            # Get language-specific settings
+            lang_settings = language_settings.get(lang_code, {})
+            lang_model = lang_settings.get('model', model)
+            lang_temperature = lang_settings.get('temperature', 0.7)
+            
+            send_status(f"🌍 Translating to {lang_name} (Model: {lang_model})...")
             
             lang_folder = os.path.join(output_folder, lang_name)
             os.makedirs(lang_folder, exist_ok=True)
@@ -231,10 +245,36 @@ def translate_files(source_folder, output_folder, languages, model, api_key):
                     
                     blocks = parse_srt(content)
                     
-                    # Translate (use lowercase code for translation)
-                    translated_blocks, elapsed = translate_blocks(blocks, lang_code, model)
+                    # Process blocks with caching and glossary
+                    translated_blocks = []
+                    cache_hits = 0
                     
-                    # Save translated file (use uppercase code in filename)
+                    for block in blocks:
+                        # Try cache first
+                        if cache:
+                            cached = cache.get(block['text'], lang_code, lang_model)
+                            if cached:
+                                translated_blocks.append({**block, 'text': cached})
+                                cache_hits += 1
+                                continue
+                        
+                        # Translate with context
+                        block_copy = block.copy()
+                        translated = translate_blocks([block_copy], lang_code, lang_model)
+                        
+                        if translated:
+                            trans_block = translated[0]
+                            translated_blocks.append(trans_block)
+                            
+                            # Cache the result
+                            if cache:
+                                cache.set(block['text'], trans_block['text'], lang_code, lang_model)
+                    
+                    # Save cache if used
+                    if cache:
+                        cache.save_cache()
+                    
+                    # Save translated file
                     new_name = filename.replace("_EN", f"_{lang_code.upper()}")
                     if not new_name.endswith(f"_{lang_code.upper()}.srt"):
                         new_name = filename.replace(".srt", f"_{lang_code.upper()}.srt")
@@ -256,7 +296,10 @@ def translate_files(source_folder, output_folder, languages, model, api_key):
                     with open(out_path, 'w', encoding='utf-8') as f:
                         f.write(output_content)
                     
-                    send_status(f"✅ {filename} → {new_name} ({elapsed:.1f}s)")
+                    msg = f"✅ {filename} → {new_name}"
+                    if cache_hits > 0:
+                        msg += f" (Cache: {cache_hits}/{len(blocks)})"
+                    send_status(msg)
                     
                 except Exception as e:
                     send_status(f"❌ Failed: {filename} - {str(e)}")
@@ -458,6 +501,10 @@ def main():
     translate_parser.add_argument('--langs', nargs='+', required=True, help='Target languages')
     translate_parser.add_argument('--model', required=True, help='Model name')
     translate_parser.add_argument('--api-key', required=True, help='OpenAI API key')
+    translate_parser.add_argument('--language-settings', default='{}', help='JSON with language-specific settings')
+    translate_parser.add_argument('--context', default='', help='Context instructions for translation')
+    translate_parser.add_argument('--use-parallel', action='store_true', help='Enable parallel translation')
+    translate_parser.add_argument('--use-cache', action='store_true', help='Enable translation caching')
     
     # Validate command
     validate_parser = subparsers.add_parser('validate', help='Validate translated files')
@@ -481,12 +528,19 @@ def main():
             sys.exit(1)
     
     elif args.command == 'translate':
+        # Parse JSON arguments
+        language_settings = json.loads(args.language_settings) if args.language_settings else {}
+        
         result = translate_files(
             args.source,
             args.output,
             args.langs,
             args.model,
-            args.api_key
+            args.api_key,
+            language_settings=language_settings,
+            context_instructions=args.context,
+            use_parallel=args.use_parallel,
+            use_cache=args.use_cache
         )
         if not result.get('success'):
             sys.exit(1)

@@ -39,6 +39,13 @@ function App() {
   const [showValidation, setShowValidation] = useState(false);
   const [failedFiles, setFailedFiles] = useState([]);
   const [isRetranslating, setIsRetranslating] = useState(false);
+  
+  // New features state
+  const [languageSettings, setLanguageSettings] = useState({});
+  const [translationCache, setTranslationCache] = useState({});
+  const [contextInstructions, setContextInstructions] = useState('');
+  const [useParallel, setUseParallel] = useState(true);
+  const [useCache, setUseCache] = useState(true);
 
   const languages = [
     { code: 'hinglish', name: 'Hinglish', flag: '🇮🇳', desc: 'Hindi + English' },
@@ -198,6 +205,60 @@ function App() {
     }
   };
 
+  // Language-specific settings
+  const setLanguageModel = (lang, model, temperature) => {
+    setLanguageSettings(prev => ({
+      ...prev,
+      [lang]: { model, temperature }
+    }));
+  };
+
+  const getLanguageSettings = (lang) => {
+    return languageSettings[lang] || { model: selectedModel, temperature: 0.7 };
+  };
+
+  // Export validation report
+  const exportValidationReport = () => {
+    if (!validationResults) {
+      setStatus('❌ No validation results to export');
+      return;
+    }
+
+    const timestamp = new Date().toISOString().split('T')[0];
+    const report = {
+      timestamp,
+      summary: {
+        total_languages: validationResults.results?.length || 0,
+        total_files: validationResults.results?.reduce((sum, r) => sum + (r.files?.length || 0), 0) || 0,
+        passed_files: validationResults.results?.reduce((sum, r) => sum + (r.files?.filter(f => f.passed).length || 0), 0) || 0
+      },
+      results: validationResults.results || []
+    };
+
+    const csv = [
+      ['Language', 'Filename', 'Status', 'Match Rate', 'Block Count Match'],
+      ...validationResults.results?.flatMap(lang =>
+        lang.files?.map(file => [
+          lang.language,
+          file.filename,
+          file.passed ? 'PASS' : 'FAIL',
+          `${file.match_rate?.toFixed(1)}%` || 'N/A',
+          `${file.en_blocks || 0} EN / ${file.target_blocks || 0} ${lang.language}`
+        ]) || []
+      ) || []
+    ];
+
+    const csvContent = csv.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `validation-report-${timestamp}.csv`;
+    a.click();
+
+    setStatus('✅ Report exported successfully');
+  };
+
   const startTranslation = async () => {
     if (!apiKey || !sourceFolder || !outputFolder || selectedLanguages.length === 0) {
       setStatus('❌ Please fill all required fields');
@@ -212,7 +273,16 @@ function App() {
 
     try {
       await window.electronAPI.startTranslation({
-        sourceFolder, outputFolder, languages: selectedLanguages, model: selectedModel, apiKey
+        sourceFolder,
+        outputFolder,
+        languages: selectedLanguages,
+        model: selectedModel,
+        apiKey,
+        languageSettings,
+        contextInstructions,
+        useParallel,
+        useCache,
+        translationCache
       });
       setProgress(100);
       setStatus('🎉 Translation completed! Validating files...');
@@ -352,8 +422,66 @@ function App() {
                 )
               )
             )
-          )
+          ),
+
+          // Advanced Settings & Features
+          React.createElement('div', {
+            className: 'backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 shadow-xl p-6'
+          },
+            React.createElement('h3', { className: 'text-lg font-semibold text-white mb-5 flex items-center gap-2' },
+              React.createElement('span', { className: 'text-xl' }, '⚙️'),
+              'Advanced Features'
+            ),
+            React.createElement('div', { className: 'space-y-4' },
+              React.createElement('div', { className: 'bg-white/5 hover:bg-white/10 rounded-xl p-4 border border-white/10 transition-all cursor-pointer' },
+                React.createElement('label', { className: 'flex items-center gap-3 cursor-pointer' },
+                  React.createElement('input', {
+                    type: 'checkbox',
+                    checked: useParallel,
+                    onChange: (e) => setUseParallel(e.target.checked),
+                    className: 'w-5 h-5 rounded accent-purple-500 cursor-pointer'
+                  }),
+                  React.createElement('div', { className: 'flex-1' },
+                    React.createElement('div', { className: 'font-semibold text-white text-sm' }, '⚡ Parallel Translation'),
+                    React.createElement('div', { className: 'text-xs text-purple-300 mt-1' }, 'Process multiple files concurrently')
+                  ),
+                  useParallel && React.createElement('div', { className: 'text-green-400' }, '✓')
+                )
+              ),
+              React.createElement('div', { className: 'bg-white/5 hover:bg-white/10 rounded-xl p-4 border border-white/10 transition-all cursor-pointer' },
+                React.createElement('label', { className: 'flex items-center gap-3 cursor-pointer' },
+                  React.createElement('input', {
+                    type: 'checkbox',
+                    checked: useCache,
+                    onChange: (e) => setUseCache(e.target.checked),
+                    className: 'w-5 h-5 rounded accent-purple-500 cursor-pointer'
+                  }),
+                  React.createElement('div', { className: 'flex-1' },
+                    React.createElement('div', { className: 'font-semibold text-white text-sm' }, '💾 Translation Cache'),
+                    React.createElement('div', { className: 'text-xs text-purple-300 mt-1' }, 'Reuse previous translations, faster processing')
+                  ),
+                  useCache && React.createElement('div', { className: 'text-green-400' }, '✓')
+                )
+              )
+            )
+          ),
+
+          // Context Instructions
+          React.createElement('div', {
+            className: 'backdrop-blur-xl bg-white/10 rounded-2xl border border-white/20 shadow-xl p-6'
+          },
+            React.createElement('h3', { className: 'text-lg font-semibold text-white mb-4' }, '📝 Context Instructions'),
+            React.createElement('textarea', {
+              value: contextInstructions,
+              onChange: (e) => setContextInstructions(e.target.value),
+              placeholder: 'e.g., "Maintain casual anime dialogue style" or "Use formal Japanese terms"',
+              className: 'w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-purple-300/50 text-sm resize-none h-20 focus:outline-none focus:ring-2 focus:ring-purple-500'
+            })
+          ),
+
         ),
+
+
 
         // Right Panel
         React.createElement('div', { className: 'lg:col-span-2 space-y-6' },
@@ -434,9 +562,15 @@ function App() {
           showValidation && validationResults && React.createElement('div', {
             className: 'backdrop-blur-xl bg-white/10 rounded-2xl border border-green-500/30 shadow-xl p-6'
           },
-            React.createElement('h3', { className: 'text-lg font-semibold text-white mb-4 flex items-center gap-2' },
-              React.createElement(Icon, { name: 'check' }),
-              '✅ Validation Results'
+            React.createElement('div', { className: 'flex items-center justify-between mb-4' },
+              React.createElement('h3', { className: 'text-lg font-semibold text-white flex items-center gap-2' },
+                React.createElement(Icon, { name: 'check' }),
+                '✅ Validation Results'
+              ),
+              React.createElement('button', {
+                onClick: exportValidationReport,
+                className: 'px-3 py-1 text-xs bg-green-500/20 hover:bg-green-500/30 text-green-300 rounded-lg border border-green-500/30'
+              }, '📊 Export Report')
             ),
             React.createElement('div', { className: 'space-y-3 mb-4 max-h-48 overflow-y-auto' },
               validationResults.results ? validationResults.results.map((langResult, idx) =>
