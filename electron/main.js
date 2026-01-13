@@ -56,18 +56,8 @@ app.on('activate', () => {
 
 // Get Python path
 function getPythonPath() {
-  if (app.isPackaged) {
-    // In production, use bundled Python
-    const platform = process.platform;
-    if (platform === 'win32') {
-      return path.join(process.resourcesPath, 'python', 'python.exe');
-    } else {
-      return path.join(process.resourcesPath, 'python', 'bin', 'python3');
-    }
-  } else {
-    // In development, use system Python
-    return process.platform === 'win32' ? 'python' : 'python3';
-  }
+  // Use system Python for both development and production
+  return process.platform === 'win32' ? 'python' : 'python3';
 }
 
 // Get script path
