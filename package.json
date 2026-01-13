@@ -12,7 +12,7 @@
     "build:linux": "electron-builder --linux"
   },
   "keywords": ["subtitle", "translator", "japanese", "drama"],
-  "author": "Your Name",
+  "author": "Robinson Minj",
   "license": "MIT",
   "devDependencies": {
     "electron": "^28.0.0",
@@ -43,7 +43,8 @@
     ],
     "win": {
       "target": ["nsis"],
-      "icon": "assets/icon.ico"
+      "icon": "assets/icon.ico",
+      "sign": null
     },
     "mac": {
       "target": ["dmg"],

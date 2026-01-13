@@ -25,6 +25,7 @@ function createWindow() {
 
   // Load the app
   mainWindow.loadFile(path.join(__dirname, '..', 'src', 'index.html'));
+  mainWindow.setTitle('Subtitle Translator - Made by Robinson Minj');
 
   // Open DevTools in development
   if (process.argv.includes('--dev')) {

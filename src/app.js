@@ -534,7 +534,8 @@ function App() {
 
       // Footer
       React.createElement('div', { className: 'mt-6 text-center text-purple-300 text-sm' },
-        React.createElement('p', null, 'Optimized for Japanese Drama Subtitles • Supports 7 Languages')
+        React.createElement('p', null, 'Optimized for Japanese Drama Subtitles • Supports 7 Languages'),
+        React.createElement('p', { className: 'mt-2 text-purple-400 text-xs' }, 'Made by Robinson Minj')
       )
     )
   );

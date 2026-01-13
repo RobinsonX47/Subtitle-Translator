@@ -131,59 +131,69 @@ npm run build
 ## 📖 How to Use
 
 ### 1. **Enter API Key**
-   - Get your OpenAI API key from [OpenAI Platform](https://platform.openai.com/api-keys)
-   - Paste it in the "OpenAI API Key" field
-   - It will be saved securely and auto-filled next time
+
+- Get your OpenAI API key from [OpenAI Platform](https://platform.openai.com/api-keys)
+- Paste it in the "OpenAI API Key" field
+- It will be saved securely and auto-filled next time
 
 ### 2. **Select Model**
-   - Choose from 4 available models
-   - **GPT-4o Mini**: Fastest and cheapest
-   - **GPT-5 Mini**: Balanced quality and cost
-   - **GPT-4o**: High quality
-   - **GPT-5**: Premium quality (most expensive)
+
+- Choose from 4 available models
+- **GPT-4o Mini**: Fastest and cheapest
+- **GPT-5 Mini**: Balanced quality and cost
+- **GPT-4o**: High quality
+- **GPT-5**: Premium quality (most expensive)
 
 ### 3. **Select Folders**
-   - **Source Folder**: Click "Browse" and select the folder containing your `.srt` files
-   - **Output Folder**: Click "Browse" and select where translated files should be saved
+
+- **Source Folder**: Click "Browse" and select the folder containing your `.srt` files
+- **Output Folder**: Click "Browse" and select where translated files should be saved
 
 ### 4. **Choose Languages**
-   - Click on language cards to select/deselect
-   - Or use "Select All" / "Clear" buttons
-   - You can select multiple languages at once
+
+- Click on language cards to select/deselect
+- Or use "Select All" / "Clear" buttons
+- You can select multiple languages at once
 
 ### 5. **Calculate Cost**
-   - Click "Calculate Cost" to see:
-     - Number of files to process
-     - Total tokens needed
-     - Estimated cost in USD and INR
-   - This helps you know the cost before starting
+
+- Click "Calculate Cost" to see:
+  - Number of files to process
+  - Total tokens needed
+  - Estimated cost in USD and INR
+- This helps you know the cost before starting
 
 ### 6. **Start Translation**
-   - Click "Start Translation"
-   - Watch the progress bar and status updates
-   - You can cancel anytime by clicking "Cancel"
+
+- Click "Start Translation"
+- Watch the progress bar and status updates
+- You can cancel anytime by clicking "Cancel"
 
 ### 7. **Find Your Translations**
-   - Go to your Output Folder
-   - Each language will have its own subfolder
-   - Files will be named with language suffix (e.g., `episode_01_HINGLISH.srt`)
+
+- Go to your Output Folder
+- Each language will have its own subfolder
+- Files will be named with language suffix (e.g., `episode_01_HINGLISH.srt`)
 
 ---
 
 ## 🎯 Tips for Best Results
 
 ### For Japanese Dramas:
+
 - The app is optimized for Japanese drama translation
 - Honorifics (San, Kun, Sama, etc.) are preserved
 - Emotional tone is matched to the scene
 - Natural, conversational language
 
 ### Cost Optimization:
+
 - Use **GPT-4o Mini** for faster, cheaper translations
 - Use **GPT-5 Mini** for balanced quality
 - Use **GPT-4o** or **GPT-5** for highest quality
 
 ### File Organization:
+
 - Keep all your SRT files in one folder
 - Make sure files are named clearly
 - The app processes all `.srt` files it finds
@@ -215,6 +225,7 @@ pip install -r requirements.txt
 ### API Key Not Working
 
 **Solutions**:
+
 - Check if the key is valid at [OpenAI Platform](https://platform.openai.com/api-keys)
 - Make sure you have credits in your OpenAI account
 - Check if the key has the correct permissions
@@ -222,17 +233,20 @@ pip install -r requirements.txt
 ### App Won't Start
 
 **Solutions**:
+
 1. Delete `node_modules` and reinstall:
+
    ```bash
    rm -rf node_modules
    npm install
    ```
 
 2. Clear Electron cache:
+
    ```bash
    # Windows
    rmdir /s %APPDATA%\subtitle-translator
-   
+
    # Mac/Linux
    rm -rf ~/Library/Application\ Support/subtitle-translator
    ```
@@ -240,6 +254,7 @@ pip install -r requirements.txt
 ### Translation Fails
 
 **Check**:
+
 - Source folder contains `.srt` files
 - API key is correct
 - You have internet connection
@@ -296,15 +311,16 @@ Edit `src/app.js` and modify the Tailwind classes:
 
 ```javascript
 // Current gradient
-className="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900"
+className = "bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900";
 
 // Change to blue theme
-className="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900"
+className = "bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900";
 ```
 
 ### Change App Icon
 
 1. Create icons:
+
    - `assets/icon.ico` (Windows)
    - `assets/icon.icns` (macOS)
    - `assets/icon.png` (Linux)
@@ -334,3 +350,11 @@ If you encounter issues:
 You now have a professional subtitle translation app! Perfect for translating Japanese dramas into multiple languages with beautiful, natural results.
 
 **Happy Translating! 🎬✨**
+
+---
+
+## 👨‍💻 Author
+
+Created by **Robinson Minj**
+
+For questions, feedback, or contributions, feel free to reach out!
