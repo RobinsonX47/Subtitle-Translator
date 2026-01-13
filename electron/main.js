@@ -166,14 +166,8 @@ ipcMain.handle('start-translation', async (event, data) => {
       '--langs',
       ...data.languages,
       '--model', data.model,
-      '--api-key', data.apiKey,
-      '--language-settings', JSON.stringify(data.languageSettings || {}),
-      '--context', data.contextInstructions || ''
+      '--api-key', data.apiKey
     ];
-    
-    // Add optional flags
-    if (data.useParallel) args.push('--use-parallel');
-    if (data.useCache) args.push('--use-cache');
 
     pythonProcess = spawn(pythonPath, args, {
       env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
