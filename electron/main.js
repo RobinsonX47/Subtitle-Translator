@@ -23,7 +23,7 @@ function createWindow() {
   });
 
   // Load the app
-  mainWindow.loadFile('src/index.html');
+  mainWindow.loadFile(path.join(__dirname, '..', 'src', 'index.html'));
 
   // Open DevTools in development
   if (process.argv.includes('--dev')) {
