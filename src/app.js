@@ -41,6 +41,7 @@ function App() {
   const [showValidation, setShowValidation] = useState(false);
   const [failedFiles, setFailedFiles] = useState([]);
   const [isRetranslating, setIsRetranslating] = useState(false);
+  const [fileErrors, setFileErrors] = useState({});
 
   const languages = [
     { code: 'hinglish', name: 'Hinglish', flag: '🇮🇳', desc: 'Hindi + English' },
@@ -86,10 +87,19 @@ function App() {
         setIsTranslating(false);
       });
 
+      window.electronAPI.onTranslationFileError((errorData) => {
+        setFileErrors(prev => ({
+          ...prev,
+          [`${errorData.filename}_${errorData.language || 'unknown'}`]: errorData
+        }));
+        setStatus(`⚠️ Error in ${errorData.filename}: ${errorData.message}`);
+      });
+
       return () => {
         window.electronAPI.removeProgressListener();
         window.electronAPI.removeStatusListener();
         window.electronAPI.removeErrorListener();
+        window.electronAPI.removeFileErrorListener();
       };
     }
   }, []);
@@ -476,6 +486,24 @@ function App() {
             React.createElement('div', { className: 'flex items-center gap-3 text-white' },
               React.createElement(Icon, { name: 'alert' }),
               React.createElement('span', null, status)
+            )
+          ),
+
+          // File Errors
+          Object.keys(fileErrors).length > 0 && React.createElement('div', {
+            className: 'backdrop-blur-xl bg-red-500/10 rounded-2xl border border-red-500/30 shadow-xl p-6'
+          },
+            React.createElement('h3', { className: 'text-lg font-semibold text-red-300 mb-4 flex items-center gap-2' },
+              React.createElement(Icon, { name: 'alert' }),
+              `File Errors (${Object.keys(fileErrors).length})`
+            ),
+            React.createElement('div', { className: 'space-y-2 max-h-40 overflow-y-auto' },
+              Object.entries(fileErrors).map(([key, error]) =>
+                React.createElement('div', { key, className: 'bg-red-500/5 rounded-lg p-2 text-sm' },
+                  React.createElement('div', { className: 'font-mono text-red-300 text-xs break-all' }, error.filename),
+                  React.createElement('div', { className: 'text-red-200 text-xs mt-1' }, error.message)
+                )
+              )
             )
           ),
 

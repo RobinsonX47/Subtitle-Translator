@@ -13,6 +13,7 @@ import tiktoken
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
+import time
 
 # Add parent directory to path to import our modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -21,9 +22,14 @@ try:
     from srt_utils import parse_srt
     from translator import translate_blocks, MODEL_PRICES
     from validation_utils import parse_srt_file, validate_subtitle_pair
+    from error_handler import ErrorLogger, ErrorType, ErrorSeverity, ErrorRecovery
 except ImportError:
     # Fallback for packaged app
-    pass
+    ErrorLogger = None
+
+# Global error logger
+error_logger = ErrorLogger(log_file=os.path.join(os.path.dirname(__file__), "..", "logs", "translation_errors.log")) if ErrorLogger else None
+failed_files = {}  # Track failed files globally
 
 # Lock for thread-safe progress updates
 progress_lock = threading.Lock()
@@ -52,46 +58,109 @@ def send_status(status):
         sys.stdout.buffer.write(f"STATUS:{status}".encode('utf-8'))
         sys.stdout.buffer.flush()
 
-def translate_file_worker(srt_path, lang_code, lang_name, output_folder, model, api_key):
+def send_error(error_type, filename, language, message, details=None, recoverable=False):
+    """Send error message to Electron with tracking"""
+    error_data = {
+        "type": error_type,
+        "filename": filename,
+        "language": language,
+        "message": message,
+        "details": details,
+        "recoverable": recoverable
+    }
+    try:
+        print(f"ERROR:{json.dumps(error_data)}", flush=True)
+    except UnicodeEncodeError:
+        sys.stdout.buffer.write(f"ERROR:{json.dumps(error_data)}".encode('utf-8'))
+        sys.stdout.buffer.flush()
+    
+    # Log the error
+    if error_logger:
+        error_logger.log_error(error_type, "error", filename, language, message, details, recoverable)
+
+def translate_file_worker(srt_path, lang_code, lang_name, output_folder, model, api_key, retry_count=0):
     """Worker function for translating a single file (used in parallel execution)"""
+    filename = os.path.basename(srt_path)
+    
     try:
         # CRITICAL: Set API key for this thread
         os.environ['OPENAI_API_KEY'] = api_key
         
-        filename = os.path.basename(srt_path)
-        
         # Read and parse SRT
-        with open(srt_path, 'r', encoding='utf-8', errors='ignore') as f:
-            content = f.read()
+        try:
+            with open(srt_path, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+            
+            if not content.strip():
+                raise ValueError("File is empty")
+                
+            blocks = parse_srt(content)
+            if not blocks:
+                raise ValueError("No subtitle blocks found in file")
+                
+        except FileNotFoundError:
+            error_msg = f"File not found: {srt_path}"
+            send_error(ErrorType.FILE_READ_ERROR.value if ErrorType else "file_read_error", 
+                      filename, lang_name, error_msg, recoverable=False)
+            return {"success": False, "filename": filename, "lang": lang_name, "error": error_msg}
+        except Exception as e:
+            error_msg = f"Failed to read/parse file: {str(e)}"
+            send_error(ErrorType.PARSING_ERROR.value if ErrorType else "parsing_error", 
+                      filename, lang_name, error_msg, recoverable=True)
+            return {"success": False, "filename": filename, "lang": lang_name, "error": error_msg}
         
-        blocks = parse_srt(content)
+        # Translate with error handling
+        try:
+            translated_blocks, elapsed = translate_blocks(blocks, lang_code, model)
+        except Exception as e:
+            error_str = str(e).lower()
+            is_retryable = ErrorRecovery.should_retry_api_error(e) if ErrorRecovery else False
+            error_msg = f"Translation failed: {str(e)}"
+            
+            send_error(ErrorType.TRANSLATION_ERROR.value if ErrorType else "translation_error", 
+                      filename, lang_name, error_msg, 
+                      {"retry_count": retry_count, "error": str(e)},
+                      recoverable=is_retryable)
+            
+            # Auto-retry for retryable errors
+            if is_retryable and retry_count < 3:
+                retry_delay = ErrorRecovery.get_retry_delay(retry_count) if ErrorRecovery else 2 ** retry_count
+                send_status(f"⏳ Retrying {filename} → {lang_name} after {retry_delay}s...")
+                time.sleep(retry_delay)
+                return translate_file_worker(srt_path, lang_code, lang_name, output_folder, model, api_key, retry_count + 1)
+            
+            return {"success": False, "filename": filename, "lang": lang_name, "error": error_msg}
         
-        # Translate (use lowercase code for translation)
-        translated_blocks, elapsed = translate_blocks(blocks, lang_code, model)
-        
-        # Save translated file (use uppercase code in filename)
-        new_name = filename.replace("_EN", f"_{lang_code.upper()}")
-        if not new_name.endswith(f"_{lang_code.upper()}.srt"):
-            new_name = filename.replace(".srt", f"_{lang_code.upper()}.srt")
-        
-        lang_folder = os.path.join(output_folder, lang_name)
-        os.makedirs(lang_folder, exist_ok=True)
-        out_path = os.path.join(lang_folder, new_name)
-        
-        # Rebuild SRT
-        lines = []
-        for b in translated_blocks:
-            lines.append(str(b["index"]).strip())
-            lines.append(f"{b['start'].strip()} --> {b['end'].strip()}")
-            for l in b["lines"]:
-                clean_line = " ".join(l.strip().split())
-                lines.append(clean_line)
-            lines.append("")
-        
-        output_content = "\n".join(lines).strip() + "\n"
-        
-        with open(out_path, 'w', encoding='utf-8') as f:
-            f.write(output_content)
+        # Save translated file
+        try:
+            new_name = filename.replace("_EN", f"_{lang_code.upper()}")
+            if not new_name.endswith(f"_{lang_code.upper()}.srt"):
+                new_name = filename.replace(".srt", f"_{lang_code.upper()}.srt")
+            
+            lang_folder = os.path.join(output_folder, lang_name)
+            os.makedirs(lang_folder, exist_ok=True)
+            out_path = os.path.join(lang_folder, new_name)
+            
+            # Rebuild SRT with error handling
+            lines = []
+            for b in translated_blocks:
+                lines.append(str(b["index"]).strip())
+                lines.append(f"{b['start'].strip()} --> {b['end'].strip()}")
+                for l in b["lines"]:
+                    clean_line = " ".join(l.strip().split())
+                    lines.append(clean_line)
+                lines.append("")
+            
+            output_content = "\n".join(lines).strip() + "\n"
+            
+            with open(out_path, 'w', encoding='utf-8') as f:
+                f.write(output_content)
+                
+        except IOError as e:
+            error_msg = f"Failed to write file: {str(e)}"
+            send_error(ErrorType.FILE_WRITE_ERROR.value if ErrorType else "file_write_error", 
+                      filename, lang_name, error_msg, recoverable=False)
+            return {"success": False, "filename": filename, "lang": lang_name, "error": error_msg}
         
         return {
             "success": True,
@@ -102,11 +171,14 @@ def translate_file_worker(srt_path, lang_code, lang_name, output_folder, model, 
         }
         
     except Exception as e:
+        error_msg = f"Unexpected error: {str(e)}"
+        send_error(ErrorType.UNKNOWN_ERROR.value if ErrorType else "unknown_error", 
+                  filename, lang_name, error_msg, recoverable=False)
         return {
             "success": False,
-            "filename": filename if 'filename' in locals() else "unknown",
+            "filename": filename,
             "lang": lang_name,
-            "error": str(e)
+            "error": error_msg
         }
 
 def analyze_files(source_folder, model):
@@ -245,6 +317,17 @@ Critical Rules:
 def translate_files(source_folder, output_folder, languages, model, api_key, parallel_languages=False, parallel_files=False):
     """Translate SRT files to target languages with optional parallel processing"""
     try:
+        global failed_files
+        failed_files = {}  # Reset failed files tracking
+        
+        # Create logs directory if it doesn't exist
+        logs_dir = os.path.join(os.path.dirname(__file__), "..", "logs")
+        os.makedirs(logs_dir, exist_ok=True)
+        
+        # Clear previous error log
+        if error_logger:
+            error_logger.clear_log()
+        
         # Set API key
         os.environ['OPENAI_API_KEY'] = api_key
         
@@ -257,7 +340,7 @@ def translate_files(source_folder, output_folder, languages, model, api_key, par
         
         if not srt_files:
             send_status("❌ No SRT files found")
-            return {"success": False, "error": "No SRT files found"}
+            return {"success": False, "error": "No SRT files found", "failed_files": {}}
         
         send_status(f"📝 Found {len(srt_files)} file(s) to translate")
         
@@ -295,44 +378,78 @@ def translate_files(source_folder, output_folder, languages, model, api_key, par
                 # Collect results as they complete
                 for future in as_completed(futures):
                     result = future.result()
-                    if result["success"]:
-                        current_task += result["task_count"]
-                        send_progress(current_task, total_tasks, result["message"])
+                    if result.get("success") or result.get("partial_failure"):
+                        current_task += result.get("task_count", 0)
+                        send_progress(current_task, total_tasks, result.get("message", ""))
                     else:
-                        send_status(f"❌ Error: {result['error']}")
+                        send_status(f"❌ Error: {result.get('error', 'Unknown error')}")
         else:
             # Translate files sequentially
             for file_idx, srt_path in enumerate(srt_files, 1):
                 result = translate_single_file(
                     srt_path, file_idx, len(srt_files), languages, model, api_key, parallel_languages, output_folder
                 )
-                if result["success"]:
-                    current_task += result["task_count"]
-                    send_progress(current_task, total_tasks, result["message"])
+                if result.get("success") or result.get("partial_failure"):
+                    current_task += result.get("task_count", 0)
+                    send_progress(current_task, total_tasks, result.get("message", ""))
         
-        send_status("🎉 All translations completed!")
-        return {"success": True}
+        # Final status
+        if failed_files:
+            send_status(f"⚠️  Translation completed with {len(failed_files)} error(s)")
+            result = {
+                "success": True,
+                "completed": True,
+                "had_errors": True,
+                "failed_files": failed_files
+            }
+        else:
+            send_status("🎉 All translations completed successfully!")
+            result = {
+                "success": True,
+                "completed": True,
+                "had_errors": False,
+                "failed_files": {}
+            }
+        
+        return result
         
     except Exception as e:
-        send_status(f"❌ Error: {str(e)}")
+        error_msg = str(e)
+        send_status(f"❌ Error: {error_msg}")
+        send_error(ErrorType.UNKNOWN_ERROR.value if ErrorType else "unknown_error", 
+                  "translator", None, error_msg, recoverable=False)
         print(f"Translation error: {e}", file=sys.stderr)
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": error_msg, "failed_files": failed_files}
 
 def translate_single_file(srt_path, file_idx, total_files, languages, model, api_key, parallel_languages, output_folder):
     """Translate a single file to all languages"""
+    filename = os.path.basename(srt_path)
+    
     try:
         # Set API key for this thread
         os.environ['OPENAI_API_KEY'] = api_key
         
-        filename = os.path.basename(srt_path)
         send_status(f"📄 [{file_idx}/{total_files}] Processing: {filename}")
         
         # Parse source file once
-        with open(srt_path, 'r', encoding='utf-8', errors='ignore') as f:
-            content = f.read()
-        blocks = parse_srt(content)
+        try:
+            with open(srt_path, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+            blocks = parse_srt(content)
+            
+            if not blocks:
+                raise ValueError("No subtitle blocks found in file")
+                
+        except Exception as e:
+            error_msg = f"Failed to parse {filename}: {str(e)}"
+            send_error(ErrorType.PARSING_ERROR.value if ErrorType else "parsing_error", 
+                      filename, None, error_msg, recoverable=False)
+            failed_files[filename] = str(e)
+            return {"success": False, "task_count": len(languages), "message": error_msg, "error": error_msg}
         
         task_count = len(languages)
+        file_failed = False
+        failed_langs = []
         
         if parallel_languages:
             # Translate to all languages IN PARALLEL
@@ -365,7 +482,10 @@ def translate_single_file(srt_path, file_idx, total_files, languages, model, api
                     if result["success"]:
                         send_status(f"✅ {filename} → {lang_name} ({result['elapsed']:.1f}s)")
                     else:
+                        file_failed = True
+                        failed_langs.append((lang_name, result['error']))
                         send_status(f"❌ {filename} → {lang_name}: {result['error']}")
+                        failed_files[f"{filename}_{lang_name}"] = result['error']
         else:
             # Translate each language sequentially
             for lang_obj in languages:
@@ -384,12 +504,28 @@ def translate_single_file(srt_path, file_idx, total_files, languages, model, api
                 if result["success"]:
                     send_status(f"✅ {filename} → {lang_name} ({result['elapsed']:.1f}s)")
                 else:
+                    file_failed = True
+                    failed_langs.append((lang_name, result['error']))
                     send_status(f"❌ {filename} → {lang_name}: {result['error']}")
+                    failed_files[f"{filename}_{lang_name}"] = result['error']
+        
+        if file_failed:
+            return {
+                "success": True,  # File processing completed, but some languages failed
+                "task_count": task_count,
+                "message": f"[{file_idx}/{total_files}] {filename} - some languages failed",
+                "partial_failure": True,
+                "failed_languages": failed_langs
+            }
         
         return {"success": True, "task_count": task_count, "message": f"[{file_idx}/{total_files}] {filename} complete"}
         
     except Exception as e:
-        return {"success": False, "error": str(e), "task_count": 0}
+        error_msg = f"Unexpected error processing {filename}: {str(e)}"
+        send_error(ErrorType.UNKNOWN_ERROR.value if ErrorType else "unknown_error", 
+                  filename, None, error_msg, recoverable=False)
+        failed_files[filename] = str(e)
+        return {"success": False, "error": error_msg, "task_count": 0}
 
 def validate_translations(output_folder, source_folder):
     """Validate translated files against source English files (OPTIMIZED)"""

@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   startTranslation: (data) => ipcRenderer.invoke('start-translation', data),
   validateTranslations: (data) => ipcRenderer.invoke('validate-translations', data),
   retranslateFile: (data) => ipcRenderer.invoke('retranslate-file', data),
+  retranslateFailedFiles: (data) => ipcRenderer.invoke('retranslate-failed-files', data),
   cancelTranslation: () => ipcRenderer.invoke('cancel-translation'),
   
   // Settings
@@ -27,6 +28,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onTranslationError: (callback) => {
     ipcRenderer.on('translation-error', (event, error) => callback(error));
   },
+  onTranslationFileError: (callback) => {
+    ipcRenderer.on('translation-file-error', (event, errorData) => callback(errorData));
+  },
+  onRetranslationProgress: (callback) => {
+    ipcRenderer.on('retranslation-progress', (event, data) => callback(data));
+  },
   
   // Remove listeners
   removeProgressListener: () => {
@@ -37,5 +44,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   removeErrorListener: () => {
     ipcRenderer.removeAllListeners('translation-error');
+  },
+  removeFileErrorListener: () => {
+    ipcRenderer.removeAllListeners('translation-file-error');
+  },
+  removeRetranslationProgressListener: () => {
+    ipcRenderer.removeAllListeners('retranslation-progress');
   }
 });

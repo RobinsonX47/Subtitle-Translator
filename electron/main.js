@@ -184,11 +184,12 @@ ipcMain.handle('start-translation', async (event, data) => {
       env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
     });
     let hasError = false;
+    let failedFiles = {};
 
     pythonProcess.stdout.on('data', (data) => {
       const output = data.toString();
       
-      // Parse progress updates
+      // Parse different message types from Python
       try {
         const lines = output.split('\n').filter(l => l.trim());
         lines.forEach(line => {
@@ -198,6 +199,15 @@ ipcMain.handle('start-translation', async (event, data) => {
           } else if (line.startsWith('STATUS:')) {
             const status = line.substring(7);
             mainWindow.webContents.send('translation-status', status);
+          } else if (line.startsWith('ERROR:')) {
+            // Handle ERROR messages from Python
+            const errorData = JSON.parse(line.substring(6));
+            mainWindow.webContents.send('translation-file-error', errorData);
+            
+            // Track failed files
+            const key = errorData.language ? `${errorData.filename}_${errorData.language}` : errorData.filename;
+            failedFiles[key] = errorData.message;
+            hasError = true;
           }
         });
       } catch (e) {
@@ -209,8 +219,8 @@ ipcMain.handle('start-translation', async (event, data) => {
     pythonProcess.stderr.on('data', (data) => {
       const error = data.toString();
       console.error('Python Error:', error);
-      // Only treat as error if it contains "Traceback" or "Error:"
-      if (error.includes('Traceback') || error.includes('Error:')) {
+      // Only treat as critical error if it contains traceback
+      if (error.includes('Traceback')) {
         mainWindow.webContents.send('translation-error', error);
         hasError = true;
       }
@@ -218,12 +228,16 @@ ipcMain.handle('start-translation', async (event, data) => {
 
     pythonProcess.on('close', (code) => {
       pythonProcess = null;
-      if (code === 0 && !hasError) {
+      if (code === 0) {
         showNotification('Translation Complete! ✅', {
-          body: 'All files have been translated successfully. Starting validation...',
+          body: 'All files have been translated. Starting validation...',
           sound: true
         });
-        resolve({ success: true });
+        resolve({ 
+          success: true, 
+          had_errors: hasError,
+          failed_files: failedFiles 
+        });
       } else {
         showNotification('Translation Failed! ❌', {
           body: 'An error occurred during translation. Check the app for details.',
@@ -343,6 +357,9 @@ ipcMain.handle('retranslate-file', async (event, data) => {
           } else if (line.startsWith('STATUS:')) {
             const status = line.substring(7);
             mainWindow.webContents.send('translation-status', status);
+          } else if (line.startsWith('ERROR:')) {
+            const errorData = JSON.parse(line.substring(6));
+            mainWindow.webContents.send('translation-file-error', errorData);
           }
         });
       } catch (e) {
@@ -375,6 +392,55 @@ ipcMain.handle('retranslate-file', async (event, data) => {
     pythonProc.on('error', (err) => {
       reject(err);
     });
+  });
+});
+
+// Retranslate multiple failed files
+ipcMain.handle('retranslate-failed-files', async (event, data) => {
+  return new Promise((resolve, reject) => {
+    const failedFiles = data.failedFiles; // Array of {filename, language}
+    const results = [];
+    let completed = 0;
+
+    const retranslateNext = async () => {
+      if (completed >= failedFiles.length) {
+        resolve({ 
+          success: true, 
+          total: failedFiles.length,
+          successful: results.filter(r => r.success).length,
+          failed: results.filter(r => !r.success).length,
+          results: results
+        });
+        return;
+      }
+
+      const file = failedFiles[completed];
+      try {
+        const result = await ipcMain._handle['retranslate-file'](event, {
+          sourceFolder: data.sourceFolder,
+          outputFolder: data.outputFolder,
+          filename: file.filename,
+          language: file.language,
+          model: data.model,
+          apiKey: data.apiKey
+        });
+        results.push({ ...file, success: true, message: result.message });
+      } catch (error) {
+        results.push({ ...file, success: false, error: error.message });
+      }
+
+      completed++;
+      const progress = (completed / failedFiles.length) * 100;
+      mainWindow.webContents.send('retranslation-progress', { 
+        percentage: progress, 
+        current: completed, 
+        total: failedFiles.length 
+      });
+      
+      retranslateNext();
+    };
+
+    retranslateNext();
   });
 });
 
