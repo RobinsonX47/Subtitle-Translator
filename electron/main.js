@@ -1,10 +1,13 @@
-const { app, BrowserWindow, ipcMain, dialog, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Notification, Menu } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs');
 
 let mainWindow;
 let pythonProcess;
+
+// Set app name early to fix notification title
+app.setName('Subtitle Translator');
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -23,6 +26,9 @@ function createWindow() {
     }
   });
 
+  // Remove the menu bar (File, Edit, View, Window, Help)
+  Menu.setApplicationMenu(null);
+
   // Load the app
   mainWindow.loadFile(path.join(__dirname, '..', 'src', 'index.html'));
 
@@ -39,8 +45,51 @@ function createWindow() {
   });
 }
 
-app.setName('Subtitle Translator');
-app.whenReady().then(createWindow);
+// Verify Python environment on startup
+async function verifyPythonEnvironment() {
+  return new Promise((resolve) => {
+    const pythonPath = getPythonPath();
+    const checkProcess = spawn(pythonPath, ['--version'], { shell: true });
+    
+    let hasOutput = false;
+    checkProcess.stdout.on('data', () => { hasOutput = true; });
+    checkProcess.stderr.on('data', () => { hasOutput = true; });
+    
+    checkProcess.on('close', (code) => {
+      if (code === 0 || hasOutput) {
+        console.log('Python environment verified');
+        resolve(true);
+      } else {
+        const { dialog } = require('electron');
+        dialog.showErrorBox(
+          'Python Not Found',
+          'Python is required but not found on your system.\n\n' +
+          'Please install Python 3.8+ from python.org and try again.'
+        );
+        resolve(false);
+      }
+    });
+    
+    checkProcess.on('error', () => {
+      const { dialog } = require('electron');
+      dialog.showErrorBox(
+        'Python Not Found',
+        'Python is required but not found on your system.\n\n' +
+        'Please install Python 3.8+ from python.org and try again.'
+      );
+      resolve(false);
+    });
+  });
+}
+
+app.whenReady().then(async () => {
+  const pythonOk = await verifyPythonEnvironment();
+  if (pythonOk) {
+    createWindow();
+  } else {
+    app.quit();
+  }
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
@@ -158,6 +207,21 @@ ipcMain.handle('analyze-files', async (event, data) => {
 // Start translation
 ipcMain.handle('start-translation', async (event, data) => {
   return new Promise((resolve, reject) => {
+    // Validate folders exist
+    if (!fs.existsSync(data.sourceFolder)) {
+      reject(new Error('Source folder does not exist'));
+      return;
+    }
+    
+    if (!fs.existsSync(data.outputFolder)) {
+      try {
+        fs.mkdirSync(data.outputFolder, { recursive: true });
+      } catch (err) {
+        reject(new Error('Cannot create output folder: ' + err.message));
+        return;
+      }
+    }
+    
     const pythonPath = getPythonPath();
     const scriptPath = getScriptPath();
     
@@ -257,6 +321,17 @@ ipcMain.handle('start-translation', async (event, data) => {
 // Validate translations
 ipcMain.handle('validate-translations', async (event, data) => {
   return new Promise((resolve, reject) => {
+    // Validate folders exist
+    if (!fs.existsSync(data.outputFolder)) {
+      reject(new Error('Output folder does not exist. Please translate files first.'));
+      return;
+    }
+    
+    if (!fs.existsSync(data.sourceFolder)) {
+      reject(new Error('Source folder does not exist'));
+      return;
+    }
+    
     const pythonPath = getPythonPath();
     const scriptPath = getScriptPath();
     
@@ -459,6 +534,10 @@ ipcMain.handle('save-settings', async (event, settings) => {
   try {
     const userDataPath = app.getPath('userData');
     const settingsPath = path.join(userDataPath, 'settings.json');
+    
+    // WARNING: API keys are stored in plain text
+    // For production, consider using electron-store with encryption
+    // or system keychain (keytar package)
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
     return { success: true };
   } catch (error) {

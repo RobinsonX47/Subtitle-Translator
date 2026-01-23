@@ -142,6 +142,11 @@ function App() {
   };
 
   const validateTranslations = async () => {
+    if (!outputFolder || !sourceFolder) {
+      setStatus('❌ Please select source and output folders first');
+      return;
+    }
+    
     setIsValidating(true);
     try {
       const results = await window.electronAPI.validateTranslations({
@@ -186,6 +191,12 @@ function App() {
       setStatus('✅ No files to retranslate');
       return;
     }
+    
+    // Validate API key before retranslation
+    if (!apiKey || !apiKey.startsWith('sk-')) {
+      setStatus('❌ Valid API key required for retranslation');
+      return;
+    }
 
     setIsRetranslating(true);
     setStatus(`🔄 Retranslating ${failedFiles.length} file(s)...`);
@@ -213,8 +224,35 @@ function App() {
   };
 
   const startTranslation = async () => {
-    if (!apiKey || !sourceFolder || !outputFolder || selectedLanguages.length === 0) {
-      setStatus('❌ Please fill all required fields');
+    // Comprehensive input validation
+    if (!apiKey || apiKey.trim() === '') {
+      setStatus('❌ Please enter your OpenAI API key');
+      return;
+    }
+    
+    if (!apiKey.startsWith('sk-')) {
+      setStatus('❌ Invalid API key format. Should start with "sk-"');
+      return;
+    }
+    
+    if (!sourceFolder || sourceFolder.trim() === '') {
+      setStatus('❌ Please select a source folder');
+      return;
+    }
+    
+    if (!outputFolder || outputFolder.trim() === '') {
+      setStatus('❌ Please select an output folder');
+      return;
+    }
+    
+    if (selectedLanguages.length === 0) {
+      setStatus('❌ Please select at least one target language');
+      return;
+    }
+    
+    // Validate folders are different
+    if (sourceFolder === outputFolder) {
+      setStatus('❌ Source and output folders must be different');
       return;
     }
 
@@ -289,7 +327,7 @@ function App() {
                 type: showApiKey ? 'text' : 'password',
                 value: apiKey,
                 onChange: (e) => setApiKey(e.target.value),
-                placeholder: 'sk-proj-...',
+                placeholder: 'sk-proj-xxx... (OpenAI API Key)',
                 className: 'w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-500 pr-10'
               }),
               React.createElement('button', {

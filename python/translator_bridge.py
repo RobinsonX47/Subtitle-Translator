@@ -320,6 +320,19 @@ def translate_files(source_folder, output_folder, languages, model, api_key, par
         global failed_files
         failed_files = {}  # Reset failed files tracking
         
+        # Validate inputs
+        if not api_key or not api_key.strip():
+            send_status("❌ API key is required")
+            return {"success": False, "error": "API key is required", "failed_files": {}}
+        
+        if not os.path.exists(source_folder):
+            send_status("❌ Source folder does not exist")
+            return {"success": False, "error": "Source folder does not exist", "failed_files": {}}
+        
+        if not languages or len(languages) == 0:
+            send_status("❌ No target languages specified")
+            return {"success": False, "error": "No target languages specified", "failed_files": {}}
+        
         # Create logs directory if it doesn't exist
         logs_dir = os.path.join(os.path.dirname(__file__), "..", "logs")
         os.makedirs(logs_dir, exist_ok=True)
@@ -638,6 +651,9 @@ def validate_translations(output_folder, source_folder):
 def retranslate_file(source_folder, output_folder, filename, language, model, api_key):
     """Retranslate a single file that failed validation"""
     try:
+        # Set API key for this operation
+        os.environ['OPENAI_API_KEY'] = api_key
+        
         # Find the source file
         source_file = None
         for root, dirs, files in os.walk(source_folder):
@@ -666,29 +682,34 @@ def retranslate_file(source_folder, output_folder, filename, language, model, ap
         lang_folder = os.path.join(output_folder, language)
         os.makedirs(lang_folder, exist_ok=True)
         
-        # Translate blocks
+        # Translate blocks - translate_blocks expects (blocks, lang, model) only
         send_status(f"Retranslating {filename}...")
-        translated_blocks = []
-        
-        for idx, block in enumerate(blocks):
-            send_progress(idx + 1, len(blocks), f"Retranslating block {idx + 1}/{len(blocks)}")
-            
-            translated_block = translate_blocks([block], language, model, api_key)
-            if translated_block:
-                translated_blocks.append(translated_block[0])
+        try:
+            translated_blocks, elapsed = translate_blocks(blocks, language, model)
+        except Exception as e:
+            error_msg = f"Translation failed: {str(e)}"
+            send_error(ErrorType.TRANSLATION_ERROR.value if ErrorType else "translation_error",
+                      filename, language, error_msg, recoverable=False)
+            return {"success": False, "error": error_msg}
         
         # Write output file
         output_path = os.path.join(lang_folder, filename)
-        output_srt = "\n\n".join([
-            f"{i+1}\n{b['start']} --> {b['end']}\n{b['text']}"
-            for i, b in enumerate(translated_blocks)
-        ])
+        lines = []
+        for b in translated_blocks:
+            lines.append(str(b["index"]).strip())
+            lines.append(f"{b['start'].strip()} --> {b['end'].strip()}")
+            for l in b["lines"]:
+                clean_line = " ".join(l.strip().split())
+                lines.append(clean_line)
+            lines.append("")
+        
+        output_content = "\n".join(lines).strip() + "\n"
         
         with open(output_path, 'w', encoding='utf-8') as f:
-            f.write(output_srt)
+            f.write(output_content)
         
-        send_status(f"✅ {filename} retranslated successfully")
-        return {"success": True, "message": f"File {filename} retranslated"}
+        send_status(f"✅ {filename} retranslated successfully ({elapsed:.1f}s)")
+        return {"success": True, "message": f"File {filename} retranslated", "elapsed": elapsed}
     
     except Exception as e:
         send_status(f"ERROR: {str(e)}")
