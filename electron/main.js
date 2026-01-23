@@ -8,6 +8,8 @@ let pythonProcess;
 
 // Set app name early to fix notification title
 app.setName('Subtitle Translator');
+// Explicit AppUserModelID for Windows toast notifications
+app.setAppUserModelId('com.subtitletranslator.app');
 
 function createWindow() {
   mainWindow = new BrowserWindow({

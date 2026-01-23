@@ -9,6 +9,24 @@ from dotenv import load_dotenv
 from tqdm import tqdm
 
 # ---------------------------
+# Model ID Mapping (Frontend → OpenAI)
+# ---------------------------
+# Maps frontend model IDs to actual OpenAI model identifiers
+MODEL_ID_MAP = {
+    "gpt-4o-mini": "gpt-4o-mini",  # Available now
+    "gpt-5-mini": "gpt-4o-mini",   # Fallback to gpt-4o-mini (gpt-5-mini not available yet)
+    "gpt-4o": "gpt-4o",             # Available now
+    "gpt-5": "gpt-4o",              # Fallback to gpt-4o (gpt-5 not available yet)
+}
+
+def get_actual_model_id(frontend_model_id: str) -> str:
+    """
+    Map frontend model ID to actual OpenAI model ID.
+    This handles cases where frontend models may not be available in OpenAI API yet.
+    """
+    return MODEL_ID_MAP.get(frontend_model_id, frontend_model_id)
+
+# ---------------------------
 # Style presets per language
 # ---------------------------
 
@@ -514,7 +532,9 @@ def _model_supports_temperature(model_name: str) -> bool:
     Older / 4o-class models accept temperature.
     We'll use a simple heuristic.
     """
-    lowered = model_name.lower()
+    # Get the actual model ID being used
+    actual_model = get_actual_model_id(model_name)
+    lowered = actual_model.lower()
     if "gpt-5" in lowered:
         return False
     # we assume gpt-4o-mini and similar support temperature
@@ -529,6 +549,9 @@ def translate_batch(lines, lang, model):
       each element is one subtitle block's dialogue text
     returns: list[str] same length, translated 1:1
     """
+
+    # Map frontend model ID to actual OpenAI model ID
+    actual_model = get_actual_model_id(model)
 
     style_block = get_style_for_lang(lang)
     sys_prompt = BASE_SYSTEM_PROMPT.format(
@@ -554,7 +577,7 @@ def translate_batch(lines, lang, model):
     )
 
     request_kwargs = {
-        "model": model,
+        "model": actual_model,
         "messages": [
             {"role": "system", "content": sys_prompt},
             {"role": "user",   "content": user_prompt},
