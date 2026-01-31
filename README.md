@@ -1,222 +1,240 @@
-# 🎬 Subtitle Translator - Production Ready
+# 🎬 Subtitle Translator
 
-Beautiful, production-ready Electron + Python application for translating Japanese drama subtitles into multiple languages with comprehensive error handling and recovery.
+Beautiful desktop application for translating Japanese drama subtitles into multiple languages with AI-powered natural language processing.
 
-## 🎯 Status: Production Ready ✅
+<div align="center">
 
-- ✅ Comprehensive error handling
-- ✅ Automatic retry with exponential backoff
-- ✅ Detailed error logging and tracking
-- ✅ File-level error reporting
-- ✅ User-friendly error recovery
-- ✅ Full validation suite (7/7 tests passing)
-- ✅ Production documentation
+![Status](https://img.shields.io/badge/status-production%20ready-success)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+
+</div>
+
+---
 
 ## ✨ Features
 
-- 🎨 **Modern Apple-inspired UI** with glass morphism effects and real-time error display
-- 🌍 **7 Languages**: Hinglish, Taglish, Vietnamese, Thai, Malay, Spanish, Indonesian
-- 🤖 **Multiple AI Models**: GPT-4o Mini (fast & cheap), GPT-5 Mini (balanced), GPT-4o, GPT-5
-- 💰 **Accurate Cost Estimation** with realistic token calculations
-- 📊 **Real-time Progress** tracking with detailed status updates
-- 🔐 **Secure API Key** storage with auto-save
-- 📁 **Easy Folder Selection** with native OS dialogs
-- ⚡ **Parallel Processing**: Translate multiple files and languages simultaneously
-- 🔄 **Smart Error Recovery**: Automatic retry for rate limits, timeouts, connection errors
-- 📋 **Post-Translation Validation**: Automatic validation with detailed results
-- 🆘 **Batch Retranslation**: One-click retry for all failed files
-- 📝 **Comprehensive Error Logging**: JSON error logs for debugging
-- 📚 **Production Documentation**: Complete guides and error references
+### 🎨 Beautiful UI
 
-## 🚀 Quick Start (5 minutes)
+- **Modern Apple-inspired design** with glass morphism effects
+- **Real-time progress tracking** with detailed status updates
+- **Intuitive interface** - no technical knowledge required
+
+### 🌍 Multi-Language Support
+
+Translate to **7 languages** optimized for Asian audiences:
+
+- 🇮🇳 **Hinglish** (Hindi + English)
+- 🇵🇭 **Taglish** (Tagalog + English)
+- 🇻🇳 **Vietnamese** (Tiếng Việt)
+- 🇹🇭 **Thai** (ภาษาไทย)
+- 🇲🇾 **Malay** (Bahasa Melayu)
+- 🇪🇸 **Spanish** (Español)
+- 🇮🇩 **Indonesian** (Bahasa Indonesia)
+
+### 🤖 AI Models
+
+Choose from **4 OpenAI models** based on your needs:
+
+- **GPT-4o Mini** - Fast & cost-effective
+- **GPT-5 Mini** - Balanced quality
+- **GPT-4o** - High quality
+- **GPT-5** - Premium quality
+
+### ⚡ Performance
+
+- **Parallel processing** for multiple files and languages
+- **Smart batching** for optimal API usage
+- **Progress tracking** for long-running translations
+
+### 🛡️ Production-Grade Reliability
+
+- ✅ **Automatic retry** with exponential backoff
+- ✅ **Error recovery** for rate limits, timeouts, and network issues
+- ✅ **Post-translation validation** with detailed reports
+- ✅ **Batch retranslation** for failed files
+- ✅ **Comprehensive error logging**
+- ✅ **7/7 tests passing**
+
+---
+
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- **Node.js** v16+ ([Download](https://nodejs.org))
-- **Python** 3.8+ ([Download](https://www.python.org))
-- **OpenAI API Key** ([Get free](https://platform.openai.com/api-keys))
+Before you begin, ensure you have:
+
+| Requirement        | Version | Download                                                    |
+| ------------------ | ------- | ----------------------------------------------------------- |
+| **Node.js**        | v16+    | [nodejs.org](https://nodejs.org)                            |
+| **Python**         | 3.8+    | [python.org](https://www.python.org)                        |
+| **OpenAI API Key** | -       | [platform.openai.com](https://platform.openai.com/api-keys) |
 
 ### Installation
 
-```bash
-# Install dependencies
-npm install
-pip install -r requirements.txt
+1. **Clone or download** this repository
 
-# Start the app
-npm start
+2. **Install Node dependencies:**
+
+   ```bash
+   npm install
+   ```
+
+3. **Install Python dependencies:**
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Start the application:**
+   ```bash
+   npm start
+   ```
+
+That's it! The app will open and you're ready to translate.
+
+> 💡 **First time?** Check out [QUICKSTART.md](electron/docs/QUICKSTART.md) for a detailed walkthrough.
+
+---
+
+## 📖 Usage Guide
+
+### Step 1: Configure API Key
+
+1. Open the app
+2. Enter your OpenAI API key in the "API Configuration" section
+3. Toggle the eye icon to show/hide your key
+4. The key is auto-saved securely for future use
+
+### Step 2: Select AI Model
+
+Choose based on your needs:
+
+- **GPT-4o Mini** → Best for quick, cost-effective translations
+- **GPT-5 Mini** → Balanced quality and speed
+- **GPT-4o** → High-quality translations
+- **GPT-5** → Premium quality (highest cost)
+
+### Step 3: Choose Translation Mode
+
+- **Parallel Languages** → Translate all languages per file simultaneously (faster)
+- **Parallel Files** → Process multiple SRT files at once (faster)
+- **Both enabled** → Maximum speed (recommended for large batches)
+
+### Step 4: Select Folders
+
+- **Source Folder** → Folder containing your `.srt` files
+- **Output Folder** → Where translated files will be saved
+
+> ⚠️ Source and output folders must be different
+
+### Step 5: Pick Target Languages
+
+- Click language cards to select/deselect
+- Use "Select All" or "Clear" buttons for bulk selection
+- Select as many languages as you need
+
+### Step 6: Start Translation
+
+1. Click **"Start Translation"**
+2. Monitor real-time progress
+3. View status updates and error messages
+4. Wait for automatic validation to complete
+
+### Step 7: Review Results
+
+- Translated files are organized in language-specific subfolders
+- Check validation results for any issues
+- Use **"Retranslate Failed Files"** button if needed
+
+---
+
+## 📂 Output Structure
+
+```
+output-folder/
+├── HINGLISH/
+│   ├── episode_01_HINGLISH.srt
+│   └── episode_02_HINGLISH.srt
+├── VIETNAMESE/
+│   ├── episode_01_VIETNAMESE.srt
+│   └── episode_02_VIETNAMESE.srt
+└── THAI/
+    ├── episode_01_THAI.srt
+    └── episode_02_THAI.srt
 ```
 
-See [QUICKSTART.md](QUICKSTART.md) for detailed setup instructions.
+---
 
-## 📖 Documentation
+## 🔧 Advanced Features
 
-### For Users
-
-- **[Quick Start Guide](QUICKSTART.md)** - Get started in 10 minutes
-- **[Production README](PRODUCTION_README.md)** - Complete user guide with features and tips
-- **[Error Reference](ERROR_REFERENCE.md)** - Comprehensive error guide with solutions
-
-### For Developers
-
-- **Error Handling**: Check `python/error_handler.py` for error system
-- **Tests**: Run `python python/test_suite.py` (all tests passing)
-- **Logging**: Check `python/logs/translation_errors.log` for debugging
-
-## 🔄 Error Handling & Recovery
+### Error Handling & Recovery
 
 The app includes production-grade error handling:
 
-### Automatic Retry Logic
+#### Automatic Retry Logic
 
-- **Rate Limits (429)**: Auto-retry with exponential backoff
-- **Timeouts**: Auto-retry with 1s, 2s, 4s, 8s delays
-- **Connection Errors**: Auto-retry with same delays
-- **Max Retries**: 3 attempts before failing
+- **Rate Limits (429)** → Auto-retry with exponential backoff (1s, 2s, 4s, 8s)
+- **Timeouts** → Automatic retry up to 3 times
+- **Connection Errors** → Smart reconnection attempts
+- **API Errors** → Detailed error categorization and reporting
 
-### Error Categorization
+#### Error Tracking
 
-- **10 Error Types**: API, File, Parsing, Timeout, Auth, Validation, etc.
-- **Severity Levels**: Info, Warning, Error, Critical
-- **Recoverable Flags**: Indicates if error can be retried
+- Real-time error display in the UI
+- Failed file list with language-specific details
+- Comprehensive JSON error logs in `python/logs/`
+- One-click batch retranslation
 
-### Error Reporting
+### Validation System
 
-- **UI Display**: Real-time error messages in the app
-- **Failed File List**: Shows which files and languages failed
-- **Error Logs**: Detailed JSON logs in `python/logs/translation_errors.log`
-- **One-Click Retry**: "Retranslate Failed Files" button
+After each translation:
 
-## 📊 Testing
+1. ✅ **Automatic validation** runs
+2. 📊 **Results displayed** per language
+3. ⚠️ **Failed files identified**
+4. 🔄 **Batch retranslation** available
 
-All components thoroughly tested:
+### Translation Quality
 
-```bash
-python python/test_suite.py
-```
+Optimized for **Japanese drama subtitles**:
 
-Results:
-
-```
-============================================================
-TEST RESULTS: 7/7 tests passed
-============================================================
-✅ All tests passed! App is ready for production.
-```
-
-Test Coverage:
-
-- ✅ Error handler import and functionality
-- ✅ Error logger with file tracking
-- ✅ Error recovery strategies
-- ✅ SRT file parsing with edge cases
-- ✅ File operations and error handling
-- ✅ Validation with mismatched blocks
-- ✅ JSON serialization of errors
-
-## 💡 Key Improvements (Fixed Issues)
-
-### Original Problem
-
-> "App showed 'translation failed' but didn't show why or which files failed"
-
-### Solution Implemented
-
-1. **Error Propagation**: Python errors now sent as structured ERROR messages to UI
-2. **File-Level Tracking**: Each file error tracked with filename, language, and message
-3. **Error Display Panel**: UI shows all errors in a dedicated error panel
-4. **Failed Files List**: Clear list of which files failed in which language
-5. **Automatic Logging**: All errors logged to JSON file for debugging
-6. **Retry Mechanism**: One-click button to retry all failed files
-7. **Validation Integration**: Post-translation validation identifies issues
-
-### Example Error Flow
-
-1. Translation starts → Python processes file
-2. Error occurs (e.g., API timeout) → Logged with context
-3. Sent to UI via ERROR message → Shown in error panel
-4. Tracked in failed files list → User sees which file failed
-5. User clicks "Retranslate" → File retranslated with auto-retry
-6. Validation runs → Confirms fix
-
-## 📋 Prerequisites
-
-- **Node.js** v16+ - [Download](https://nodejs.org/)
-- **Python** 3.8+ - [Download](https://www.python.org/downloads/)
-- **OpenAI API Key** - [Get here](https://platform.openai.com/api-keys)
-
-```bash
-pip3 install -r requirements.txt
-```
-
-### Step 4: Project Structure
-
-Make sure your project has this structure:
-
-```
-subtitle-translator/
-├── electron/
-│   ├── main.js          ← Electron main process
-│   └── preload.js       ← Preload script
-├── src/
-│   ├── index.html       ← App HTML
-│   └── app.js           ← App JavaScript (React)
-├── python/
-│   ├── translator_bridge.py  ← Python bridge script
-│   ├── translator.py         ← Translation logic (your enhanced version)
-│   ├── srt_utils.py          ← SRT parsing utilities
-│   ├── archive_utils.py      ← Archive extraction (optional)
-│   └── .env                  ← Environment variables (optional)
-├── package.json
-├── requirements.txt
-└── README.md
-```
+- Preserves honorifics (San, Kun, Sama, Chan, etc.)
+- Matches emotional tone and context
+- Natural, conversational language
+- Cultural nuance preservation
 
 ---
 
-## 🎮 Running the App
+## 📦 Building Executables
 
-### Development Mode
+Create standalone installers for distribution:
 
-```bash
-npm start
-```
-
-Or with dev tools:
-
-```bash
-npm run dev
-```
-
----
-
-## 📦 Building the App
-
-### Build for Windows
+### Windows
 
 ```bash
 npm run build:win
 ```
 
-The installer will be in `dist/` folder.
+Output: `dist/Subtitle-Translator-Setup.exe`
 
-### Build for macOS
+### macOS
 
 ```bash
 npm run build:mac
 ```
 
-Creates a `.dmg` file in `dist/` folder.
+Output: `dist/Subtitle-Translator.dmg`
 
-### Build for Linux
+### Linux
 
 ```bash
 npm run build:linux
 ```
 
-Creates an AppImage in `dist/` folder.
+Output: `dist/Subtitle-Translator.AppImage`
 
-### Build for All Platforms
+### All Platforms
 
 ```bash
 npm run build
@@ -224,83 +242,36 @@ npm run build
 
 ---
 
-## 📖 How to Use
+## 🧪 Testing
 
-### 1. **Enter API Key**
+Run the comprehensive test suite:
 
-- Get your OpenAI API key from [OpenAI Platform](https://platform.openai.com/api-keys)
-- Paste it in the "OpenAI API Key" field
-- It will be saved securely and auto-filled next time
+```bash
+python python/test_suite.py
+```
 
-### 2. **Select Model**
+**Test Coverage:**
 
-- Choose from 4 available models
-- **GPT-4o Mini**: Fastest and cheapest
-- **GPT-5 Mini**: Balanced quality and cost
-- **GPT-4o**: High quality
-- **GPT-5**: Premium quality (most expensive)
+- ✅ Error handler functionality
+- ✅ Error logging with file tracking
+- ✅ Recovery strategies
+- ✅ SRT parsing with edge cases
+- ✅ File operations
+- ✅ Validation logic
+- ✅ JSON serialization
 
-### 3. **Select Folders**
-
-- **Source Folder**: Click "Browse" and select the folder containing your `.srt` files
-- **Output Folder**: Click "Browse" and select where translated files should be saved
-
-### 4. **Choose Languages**
-
-- Click on language cards to select/deselect
-- Or use "Select All" / "Clear" buttons
-- You can select multiple languages at once
-
-### 5. **Calculate Cost**
-
-- Click "Calculate Cost" to see:
-  - Number of files to process
-  - Total tokens needed
-  - Estimated cost in USD and INR
-- This helps you know the cost before starting
-
-### 6. **Start Translation**
-
-- Click "Start Translation"
-- Watch the progress bar and status updates
-- You can cancel anytime by clicking "Cancel"
-
-### 7. **Find Your Translations**
-
-- Go to your Output Folder
-- Each language will have its own subfolder
-- Files will be named with language suffix (e.g., `episode_01_HINGLISH.srt`)
-
----
-
-## 🎯 Tips for Best Results
-
-### For Japanese Dramas:
-
-- The app is optimized for Japanese drama translation
-- Honorifics (San, Kun, Sama, etc.) are preserved
-- Emotional tone is matched to the scene
-- Natural, conversational language
-
-### Cost Optimization:
-
-- Use **GPT-4o Mini** for faster, cheaper translations
-- Use **GPT-5 Mini** for balanced quality
-- Use **GPT-4o** or **GPT-5** for highest quality
-
-### File Organization:
-
-- Keep all your SRT files in one folder
-- Make sure files are named clearly
-- The app processes all `.srt` files it finds
+**Current Status:** 7/7 tests passing ✅
 
 ---
 
 ## 🛠️ Troubleshooting
 
-### "Python not found" Error
+### Common Issues
 
-**Solution**: Make sure Python is installed and in your PATH:
+<details>
+<summary><b>❌ "Python not found" Error</b></summary>
+
+**Solution:** Verify Python installation and PATH configuration
 
 ```bash
 python --version
@@ -308,148 +279,283 @@ python --version
 python3 --version
 ```
 
-If not installed, download from [python.org](https://www.python.org/downloads/)
+If not found, download and install from [python.org](https://www.python.org/downloads/) and ensure "Add to PATH" is checked during installation.
 
-### "Module not found" Error
+</details>
 
-**Solution**: Install Python dependencies:
+<details>
+<summary><b>❌ "Module not found" Error</b></summary>
+
+**Solution:** Install Python dependencies
 
 ```bash
 pip install -r requirements.txt
+# or if pip is not found
+python -m pip install -r requirements.txt
 ```
 
-### API Key Not Working
+</details>
 
-**Solutions**:
+<details>
+<summary><b>❌ API Key Not Working</b></summary>
 
-- Check if the key is valid at [OpenAI Platform](https://platform.openai.com/api-keys)
-- Make sure you have credits in your OpenAI account
-- Check if the key has the correct permissions
+**Check the following:**
 
-### App Won't Start
+- ✅ Key is valid at [OpenAI Platform](https://platform.openai.com/api-keys)
+- ✅ Account has available credits
+- ✅ Key starts with `sk-`
+- ✅ No extra spaces before/after the key
+- ✅ Internet connection is stable
 
-**Solutions**:
+</details>
 
-1. Delete `node_modules` and reinstall:
+<details>
+<summary><b>❌ App Won't Start</b></summary>
+
+**Try these steps:**
+
+1. **Clear and reinstall dependencies:**
 
    ```bash
    rm -rf node_modules
    npm install
    ```
 
-2. Clear Electron cache:
+2. **Clear Electron cache:**
 
    ```bash
    # Windows
    rmdir /s %APPDATA%\subtitle-translator
 
-   # Mac/Linux
+   # macOS/Linux
    rm -rf ~/Library/Application\ Support/subtitle-translator
    ```
 
-### Translation Fails
+3. **Check Node.js version:**
+   ```bash
+   node --version  # Should be v16+
+   ```
 
-**Check**:
+</details>
 
-- Source folder contains `.srt` files
-- API key is correct
-- You have internet connection
-- OpenAI API is not rate-limited
+<details>
+<summary><b>❌ Translation Fails</b></summary>
+
+**Verify:**
+
+- ✅ Source folder contains `.srt` files
+- ✅ API key is correctly entered
+- ✅ Internet connection is active
+- ✅ OpenAI API status (check [status.openai.com](https://status.openai.com))
+- ✅ Check error logs in `python/logs/translation_errors.log`
+
+</details>
+
+<details>
+<summary><b>⚠️ Some Files Failed Validation</b></summary>
+
+**Solution:**
+
+1. Check validation results to see which files failed
+2. Click **"Retranslate Failed Files"** button
+3. App will automatically retry with error recovery
+4. Validation runs again after retranslation
+
+</details>
 
 ---
 
-## 🔧 Advanced Configuration
+## 📚 Documentation
 
-### Changing Model Prices
+### User Guides
 
-Edit `python/translator.py` and update the `MODEL_PRICES` dictionary:
+- 📘 [Quickstart Guide](electron/docs/QUICKSTART.md) - Detailed 10-minute setup
+- 📗 [Production README](electron/docs/PRODUCTION_README.md) - Complete user manual
+- 📕 [Error Reference](electron/docs/ERROR_REFERENCE.md) - Error codes and solutions
+- ✅ [Production Checklist](PRODUCTION_CHECKLIST.md) - Pre-deployment checklist
 
-```python
-MODEL_PRICES = {
-    "gpt-4o-mini": {
-        "input": 0.0000007,
-        "output": 0.0000007,
-    },
-    # ... other models
-}
+### Developer Guides
+
+- 🔧 [Deployment Guide](electron/docs/DEPLOYMENT_GUIDE.md) - Build and distribute
+- 📝 [Implementation Summary](electron/docs/IMPLEMENTATION_SUMMARY.md) - Technical overview
+
+### Code Documentation
+
+- **Error Handling:** [python/error_handler.py](python/error_handler.py)
+- **Translation Logic:** [python/translator.py](python/translator.py)
+- **SRT Parsing:** [python/srt_utils.py](python/srt_utils.py)
+- **Validation:** [python/validation_utils.py](python/validation_utils.py)
+
+---
+
+## 📁 Project Structure
+
 ```
-
-### Adding New Languages
-
-1. Add language to `python/translator.py` in `LANG_STYLE_PRESETS`
-2. Add language to `src/app.js` in the `languages` array
-3. Restart the app
-
----
-
-## 📝 Project Files
-
-### Core Files You Can Modify:
-
-- **`python/translator.py`** - Translation logic and language styles
-- **`python/translator_bridge.py`** - Bridge between Electron and Python
-- **`src/app.js`** - UI logic and state management
-- **`electron/main.js`** - Electron window and IPC handlers
-
-### Files to Keep As-Is:
-
-- **`electron/preload.js`** - Security bridge
-- **`src/index.html`** - HTML structure
-- **`package.json`** - Dependencies
+subtitle-translator/
+├── electron/
+│   ├── main.js              # Electron main process
+│   ├── preload.js           # Secure IPC bridge
+│   └── docs/                # Documentation
+├── src/
+│   ├── index.html           # App HTML
+│   └── app.js               # React UI
+├── python/
+│   ├── translator.py        # Core translation logic
+│   ├── translator_bridge.py # Electron-Python bridge
+│   ├── error_handler.py     # Error management
+│   ├── srt_utils.py         # SRT parsing
+│   ├── validation_utils.py  # Validation logic
+│   └── logs/                # Error logs
+├── package.json             # Node dependencies
+├── requirements.txt         # Python dependencies
+└── README.md                # This file
+```
 
 ---
 
 ## 🎨 Customization
 
-### Change App Colors
+### Adding New Languages
 
-Edit `src/app.js` and modify the Tailwind classes:
+1. **Edit** [python/translator.py](python/translator.py):
+
+   ```python
+   LANG_STYLE_PRESETS = {
+       "your_language": {
+           "name": "Your Language",
+           "description": "Natural conversational Your Language",
+           # ... style settings
+       }
+   }
+   ```
+
+2. **Edit** [src/app.js](src/app.js):
+
+   ```javascript
+   const languages = [
+     {
+       code: "your_language",
+       name: "Your Language",
+       flag: "🇫🇷",
+       desc: "Description",
+     },
+     // ... other languages
+   ];
+   ```
+
+3. **Restart** the application
+
+### Changing UI Theme
+
+Edit [src/app.js](src/app.js) Tailwind classes:
 
 ```javascript
-// Current gradient
-className = "bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900";
+// Purple theme (current)
+className: "bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900";
 
-// Change to blue theme
-className = "bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900";
+// Blue theme
+className: "bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900";
+
+// Green theme
+className: "bg-gradient-to-br from-slate-900 via-emerald-900 to-slate-900";
 ```
 
-### Change App Icon
+### Updating Model Prices
 
-1. Create icons:
-   - `assets/icon.ico` (Windows)
-   - `assets/icon.icns` (macOS)
-   - `assets/icon.png` (Linux)
+Edit [python/translator.py](python/translator.py):
 
-2. Update `package.json` build section
+```python
+MODEL_PRICES = {
+    "gpt-4o-mini": {
+        "input": 0.00000015,  # per token
+        "output": 0.00000060, # per token
+    },
+    # ... update other models
+}
+```
+
+---
+
+## 💡 Tips & Best Practices
+
+### 🎯 Translation Quality
+
+- Use **GPT-4o** or **GPT-5** for best results with Japanese dramas
+- Test with 1-2 files before batch processing
+- Review validation results after translation
+
+### 💰 Cost Optimization
+
+- Start with **GPT-4o Mini** to estimate quality
+- Use parallel processing for faster completion
+- Process similar content in batches
+
+### 🗂️ File Management
+
+- Keep source files organized in one folder
+- Use descriptive file names
+- Backup original files before processing
+
+### ⚡ Performance
+
+- Enable both parallel options for maximum speed
+- Close unnecessary applications during large batch processing
+- Ensure stable internet connection
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Here's how:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 ---
 
 ## 📄 License
 
-MIT License - feel free to use and modify!
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ---
 
-## 🤝 Support
+## 🙏 Acknowledgments
 
-If you encounter issues:
-
-1. Check the troubleshooting section above
-2. Make sure all dependencies are installed
-3. Check the console for error messages (open with Ctrl+Shift+I or Cmd+Option+I)
-
----
-
-## 🎉 Enjoy Your App!
-
-You now have a professional subtitle translation app! Perfect for translating Japanese dramas into multiple languages with beautiful, natural results.
-
-**Happy Translating! 🎬✨**
+- **OpenAI** for GPT models
+- **Electron** for cross-platform desktop framework
+- **React** for UI framework
+- **TailwindCSS** for beautiful styling
 
 ---
 
 ## 👨‍💻 Author
 
-Created by **Robinson Minj**
+**Robinson Minj**
 
-For questions, feedback, or contributions, feel free to reach out!
+Created with ❤️ for Japanese drama fans worldwide
+
+---
+
+## 📞 Support
+
+Having issues? Need help?
+
+1. Check the [Troubleshooting](#-troubleshooting) section
+2. Review [Error Reference](electron/docs/ERROR_REFERENCE.md)
+3. Check error logs in `python/logs/`
+4. Open the dev console (Ctrl+Shift+I / Cmd+Option+I) for detailed errors
+
+---
+
+<div align="center">
+
+**🎉 Happy Translating! 🎬✨**
+
+Made for translating Japanese dramas with love and precision
+
+[⭐ Star this repo](../../) | [🐛 Report Bug](../../issues) | [💡 Request Feature](../../issues)
+
+</div>
