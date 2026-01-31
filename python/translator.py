@@ -4,7 +4,7 @@
 import os
 import time
 import random
-from openai import OpenAI, RateLimitError, APIError, APITimeoutError
+from openai import OpenAI, RateLimitError, APIError, APITimeoutError, OpenAIError
 from dotenv import load_dotenv
 from tqdm import tqdm
 
@@ -334,10 +334,27 @@ Gaya yang autentik dan emosi yang halus seperti drama Jepang "Hana Yori Dango", 
 
 
 # ---------------------------
-# API client
+# API client (lazy init)
 # ---------------------------
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+_client = None
+_client_api_key = None
+
+def get_client(api_key: str | None = None) -> OpenAI:
+    """Return a cached OpenAI client initialized with the current API key."""
+    global _client, _client_api_key
+
+    key = api_key or os.getenv("OPENAI_API_KEY")
+    if not key:
+        raise OpenAIError(
+            "The api_key client option must be set either by passing api_key to the client or by setting the OPENAI_API_KEY environment variable"
+        )
+
+    if _client is None or _client_api_key != key:
+        _client = OpenAI(api_key=key)
+        _client_api_key = key
+
+    return _client
 
 # ---------------------------
 # Pricing table (USD per 1M tokens as of Jan 2025)
@@ -586,6 +603,7 @@ def translate_batch(lines, lang, model):
     if _model_supports_temperature(model):
         request_kwargs["temperature"] = 0.3
 
+    client = get_client()
     response = safe_api_call(
         client.chat.completions.create,
         **request_kwargs

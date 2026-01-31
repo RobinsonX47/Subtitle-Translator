@@ -51,7 +51,7 @@ function createWindow() {
 async function verifyPythonEnvironment() {
   return new Promise((resolve) => {
     const pythonPath = getPythonPath();
-    const checkProcess = spawn(pythonPath, ['--version'], { shell: true });
+    const checkProcess = spawn(pythonPath, ['--version']);
     
     let hasOutput = false;
     checkProcess.stdout.on('data', () => { hasOutput = true; });
