@@ -1,6 +1,6 @@
 {
   "name": "subtitle-translator",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Japanese Drama Subtitle Translator Desktop App",
   "main": "electron/main.js",
   "scripts": {
@@ -11,7 +11,12 @@
     "build:mac": "electron-builder --mac",
     "build:linux": "electron-builder --linux"
   },
-  "keywords": ["subtitle", "translator", "japanese", "drama"],
+  "keywords": [
+    "subtitle",
+    "translator",
+    "japanese",
+    "drama"
+  ],
   "author": "Robinson Minj",
   "license": "MIT",
   "devDependencies": {
@@ -38,21 +43,29 @@
       {
         "from": "python",
         "to": "python",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "win": {
-      "target": ["nsis"],
+      "target": [
+        "nsis"
+      ],
       "icon": "assets/icon.ico",
       "sign": null
     },
     "mac": {
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "icon": "assets/icon.icns",
       "category": "public.app-category.productivity"
     },
     "linux": {
-      "target": ["AppImage"],
+      "target": [
+        "AppImage"
+      ],
       "icon": "assets/icon.png",
       "category": "Utility"
     }

@@ -50,7 +50,10 @@ function App() {
     { code: 'thai', name: 'Thai', flag: '🇹🇭', desc: 'ภาษาไทย' },
     { code: 'malay', name: 'Malay', flag: '🇲🇾', desc: 'Bahasa Melayu' },
     { code: 'spanish', name: 'Spanish', flag: '🇪🇸', desc: 'Español' },
-    { code: 'indonesian', name: 'Indonesian', flag: '🇮🇩', desc: 'Bahasa Indonesia' }
+    { code: 'indonesian', name: 'Indonesian', flag: '🇮🇩', desc: 'Bahasa Indonesia' },
+    { code: 'chinese', name: 'Chinese', flag: '🇨🇳', desc: '中文' },
+    { code: 'russian', name: 'Russian', flag: '🇷🇺', desc: 'Русский' },
+    { code: 'korean', name: 'Korean', flag: '🇰🇷', desc: '한국어' }
   ];
 
   const models = [
